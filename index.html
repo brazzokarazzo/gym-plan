@@ -140,7 +140,23 @@ svg.chart{width:100%;height:auto;display:block}
 .pr{color:var(--warn);font-weight:700}
 a.iconbtn{text-decoration:none}
 .imglinks{display:flex;gap:8px;margin:0 0 14px}
-.imglinks a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;border-radius:12px;background:var(--accbg);color:var(--acc);font-weight:650;font-size:14px;text-decoration:none}
+.thumb{display:block;width:100%;aspect-ratio:16/10;object-fit:contain;background:#fff;border-radius:14px;margin:0 0 10px}
+/* Foto-Layer */
+#photo{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.94);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .2s}
+#photo.on{opacity:1;pointer-events:auto}
+#photo .ph{display:flex;align-items:center;gap:10px;padding:calc(var(--st) + 10px) 16px 10px}
+#photo .ph b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:17px}
+#photo .close{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.14);font-size:18px;color:#fff;flex:none}
+#photo .slides{flex:1;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+#photo .slides::-webkit-scrollbar{display:none}
+#photo .slide{flex:0 0 100%;scroll-snap-align:center;display:flex;align-items:center;justify-content:center;padding:0 12px}
+#photo .slide img{max-width:100%;max-height:100%;background:#fff;border-radius:16px;object-fit:contain}
+#photo .slide .miss{color:var(--tx2);text-align:center;padding:30px;font-size:14px}
+#photo .dots{display:flex;justify-content:center;gap:7px;padding:12px}
+#photo .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.3)}
+#photo .dots i.on{background:#fff}
+#photo .pf{padding:0 16px calc(var(--sb) + 14px);text-align:center;font-size:12px;color:var(--tx3)}
+.imglinks button, .imglinks a{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:11px 8px;border-radius:12px;background:var(--accbg);color:var(--acc);font-weight:650;font-size:14px;text-decoration:none}
 .imglinks a.sec{background:var(--bg3);color:var(--tx)}
 </style>
 </head>
@@ -153,6 +169,8 @@ a.iconbtn{text-decoration:none}
 <div id="sheetbg" data-a="closeSheet"></div>
 <div id="sheet"><div class="grab"></div><div id="sheetc"></div></div>
 <div id="toast"></div>
+<div id="photo"><div class="ph"><b id="phTitle"></b><button class="close" data-a="closePhoto" aria-label="Schließen">✕</button></div>
+  <div class="slides" id="phSlides"></div><div class="dots" id="phDots"></div><div class="pf" id="phFoot"></div></div>
 
 <script>
 'use strict';
@@ -239,7 +257,50 @@ const LEGACY_MAP = {
   curl_kh:'curl_masch', hammer:'hammer_kabel', french:'trizeps_ueber_masch', kniebeuge:'kniebeuge_masch', kniebeuge_mp:'hackenschmidt',
   ausfall:'beinpresse_45', bulgarian:'gluteus_kick', rdl:'beinbeuger_liegend', hipthrust:'gluteus_kick', beinheben:'crunch_kabel', plank:'rotation',
 };
-const g80Url = ex => ex.img || (ex.g80 ? `https://gym80.de/produkt/${ex.g80}/` : '');
+/* Gerätefotos (gym80) – werden im Offline-Speicher des Geräts abgelegt */
+const IMG_CACHE = 'gymplan-img';
+const G80_IMG = {
+  '3016':['2025/07/3016_brustpresse_NC-768x480.webp','2026/03/gym80_3016_seated_chest_press_NC_side.webp','2026/03/gym80_3016_seated_chest_press_NC_front.webp'],
+  '3023n':['2025/07/3023n_schraegbank_NC-768x480.webp','2026/03/gym80_3023n_incline_chest_press_NC_front.webp','2026/03/gym80_3023n_incline_chest_press_NC_side.webp'],
+  '4328':['2025/07/4328_pure_kraft_bankdrueckmaschine_sitzend_dual_NC-768x480.webp','2026/03/gym80_4328_pure_kraft_seated_chest_press_dual_NC_side.webp','2026/03/gym80_4328_pure_kraft_seated_chest_press_dual_NC_front.webp'],
+  '3022':['2025/07/3022_butterfly_NC-768x480.webp','2026/03/gym80_3022_butterfly_NC_side.webp','2026/03/gym80_3022_butterfly_NC_front.webp'],
+  '4004':['2025/07/4004_kabelzug_crossover_NC-768x480.webp','2026/03/gym80_4004_cable_crossover_station_NC_front.jpg','2026/03/gym80_4004_cable_crossover_station_NC_side-.jpg'],
+  '4116':['2025/07/4116_rueckenzugstation_NC-768x480.webp','2026/03/gym80_4116_lat_pull_station_NC_side.webp','2026/03/gym80_4116_lat_pull_station_NC_front.webp'],
+  '3020':['2025/07/3020_rueckenzugmaschine_NC-768x480.webp','2026/03/gym80_3020_lat_pulldown_machine_NC_side.webp','2026/03/gym80_3020_lat_pulldown_machine_NC_front.webp'],
+  '3017':['2026/03/gym80_3017_kneeling-chinning-dipping_machine_NC_overview.webp','2026/03/gym80_3017_kneeling-chinning-dipping_machine_NC_front-.jpg','2026/03/gym80_3017_kneeling-chinning-dipping_machine_NC_side.jpg'],
+  '4016':['2025/07/4016_ruderstation_NC-768x480.webp','2026/03/gym80_4016_rowing_station_NC_front.webp','2026/03/gym80_4016_rowing_station_NC_side.webp'],
+  '3040':['2025/07/3040_rudermaschine_NC-768x480.webp','2026/03/gym80_3040_seated_row_machine_NC_front.webp','2026/03/gym80_3040_seated_row_machine_NC_side.webp'],
+  '4018':['2026/03/gym80_4018_pure_kraft_t-bar_row_NC_overview.webp','2026/03/gym80_4018_pure_kraft_t-bar_row_NC_front.webp','2026/03/gym80_4018_pure_kraft_t-bar_row_NC_side.webp'],
+  '4340':['2025/07/4340_pure_kraft_high_row_dual_NC-768x480.webp','2026/03/gym80_4340_pure_kraft_high_row_dual_NC_front.webp','2026/03/gym80_4340_pure_kraft_high_row_dual_NC_side.webp'],
+  '3012n':['2025/07/3012n_ueberzugmaschine_NC-768x480.webp','2026/03/gym80_3012n_pull_over_machine_NC_side.webp','2026/03/gym80_3012n_pull_over_machine_NC_front.webp'],
+  '3007':['2025/07/3007_rueckenstrecker_NC-768x480.webp','2026/03/gym80_3007_lower_back_machine_NC_side.webp','2026/03/gym80_3007_lower_back_machine_NC_front.webp'],
+  '3032':['2025/07/3032_schulterpresse_NC-768x480.webp','2026/03/gym80_3032_shoulder_press_NC_front.webp','2026/03/gym80_3032_shoulder_press_NC_side.webp'],
+  '3050':['2025/07/3050_seithebemaschine_NC-768x480.webp','2026/03/gym80_3050_shoulder_lateral_raise_with_grips_NC_side.webp','2026/03/gym80_3050_shoulder_lateral_raise_with_grips_NC_front.webp'],
+  '3025':['2025/07/3025_butterfly_reverse_NC-768x480.webp','2026/03/gym80_3025_butterfly_reverse_NC_front.webp','2026/03/gym80_3025_butterfly_reverse_NC_side.webp'],
+  '3010':['2025/07/3010_bizepsmaschine_NC-768x480.webp','2026/03/gym80_3010_biceps_machine_NC_front.webp','2026/03/gym80_3010_biceps_machine_NC_side.webp'],
+  '3011':['2025/07/3011_trizepsmaschine_NC-768x480.webp','2026/03/gym80_3011_triceps_extension_NC_side-1.webp','2026/03/gym80_3011_triceps_extension_NC_front-1.webp'],
+  '3036':['2025/07/3036_dipmaschine_NC-768x480.webp','2026/03/gym80_3036_dip_machine_NC_side.webp','2026/03/gym80_3036_dip_machine_NC_front.webp'],
+  '3095':['2026/03/gym80_3095_triceps_overhead_NC_overview-1.webp','2026/03/gym80_3095_triceps_overhead_NC_side-1.webp','2026/03/gym80_3095_triceps_overhead_NC_front-1.webp'],
+  '3030':['2025/07/3030_beinpresse_sitend_NC-768x480.webp','2026/03/gym80_3030_seated_leg_press_NC_back.webp','2026/03/gym80_3030_seated_leg_press_NC_side.webp'],
+  '4023':['2026/03/gym80_4023_pure_kraft_45_degrees_linear_leg_press_NC_overview.webp','2026/03/gym80_4023_pure_kraft_45_degrees_linear_leg_press_NC_front.webp','2026/03/gym80_4023_pure_kraft_45_degrees_linear_leg_press_NC_side.webp'],
+  '4159n':['2026/03/gym80_4159n_pure_kraft_hack_squat_NC_overview.webp','2026/03/gym80_4159n_pure_kraft_hack_squat_NC_front.webp','2026/03/gym80_4159n_pure_kraft_hack_squat_NC_side.webp'],
+  '4038n':['2026/04/gym80_4038n_pure_kraft_squat_machine_NC_overview.webp','2026/04/gym80_4038n_pure_kraft_squat_machine_NC_front.jpg','2026/04/gym80_4038n_pure_kraft_squat_machine_NC_side.jpg'],
+  '3001':['2026/03/3001_beinbeuger_NC-1.webp','2026/03/gym80_3001_leg_extention_NC_side-sdfgesrgweb.webp','2026/03/gym80_3001_leg_extention_NC_front-web.webp'],
+  '3002':['2026/03/gym80_3002_lying_leg_curl_NC_overview.webp','2026/03/gym80_3002_lying_leg_curl_NC_front.jpg','2026/03/gym80_3002_lying_leg_curl_NC_side.jpg'],
+  '3003':['2026/03/3003_beinbeuger_sitzend_NC.webp','2026/03/gym80_3003_seated_leg_curl_NC_front.webp','2026/03/gym80_3003_seated_leg_curl_NC_side.webp'],
+  '3004':['2025/07/3004_gluteus_kick_Kniend_NC-768x480.webp','2026/03/gym80_3004_kneeling_glutes_kick_NC_front.webp','2026/03/gym80_3004_kneeling_glutes_kick_NC_side.webp'],
+  '3028':['2025/07/3028_abduktionsmaschine_NC-768x480.webp','2026/03/gym80_3028_abduction_machine_NC_front.webp','2026/03/gym80_3028_abduction_machine_NC_side.webp'],
+  '3029':['2025/07/3029_addunktionsmaschine_NC-768x480.webp','2026/03/gym80_3029_adduction_machine_NC_front.webp','2026/03/gym80_3029_adduction_machine_NC_side.webp'],
+  '3018':['2025/07/3018_wandenmaschine_stehend_NC-768x480.webp','2026/03/gym80_3018_standing_calf_raise_machine_NC_front.webp','2026/03/gym80_3018_standing_calf_raise_machine_NC_side-.webp'],
+  '3027':['2025/07/3027_wandenpresse_sitzend_NC-768x480.webp','2026/03/gym80_3027_seated_calf_press_NC_front.webp','2026/03/gym80_3027_seated_calf_press_NC_side.webp'],
+  '3037':['2026/03/gym80_3037_abdominal_machine_NC_overview.webp','2026/03/gym80_3037_abdominal_machine_NC_side-1.webp','2026/03/gym80_3037_abdominal_machine_NC_front-1.webp'],
+  '3225':['2025/07/3225_rotationsrmaschine_NC-768x480.webp','2026/03/gym80_3225_rotary_machine_NC_front.webp','2026/03/gym80_3225_rotary_machine_NC_side.webp'],
+};
+const G80_BASE = 'https://gym80.de/wp-content/uploads/';
+const imgsFor = ex => ex.img ? [ex.img] : (G80_IMG[ex.g80] || []).map(p => G80_BASE + p);
+const allImgUrls = () => [...new Set(S.exercises.flatMap(imgsFor))];
+const g80Url = ex => ex.g80 ? `https://gym80.de/produkt/${ex.g80}/` : '';
+const photoBtn = ex => imgsFor(ex).length ? `<button class="iconbtn" data-a="photo" data-x="${ex.id}" aria-label="Foto des Geräts">📷</button>` : '';
 const photoUrl = ex => 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent('McFit ' + ex.name + ' gym80');
 
 /* Vorlagen (nur Geräte): [exId, Sätze, minWdh, maxWdh, RIR, Pause(s)] */
@@ -361,6 +422,7 @@ function render() {
   const views = { train: vTrain, plans: vPlans, ex: vEx, hist: vHist, more: vMore };
   v.innerHTML = views[ui.tab]();
   renderWorkout();
+  if (ui.tab === 'more') updateImgStatus();
 }
 
 /* ---------- Training ---------- */
@@ -444,7 +506,7 @@ function vDayEdit() {
   d.items.forEach((it, i) => {
     const ex = exById(it.exId);
     h += `<div class="pitem"><div class="row"><div class="grow"><b>${esc(ex.name)}</b><div class="muted small">${esc(ex.muscle)} · ${esc(ex.equip)}</div></div>
-      ${g80Url(ex) ? `<a class="iconbtn" href="${esc(g80Url(ex))}" target="_blank" rel="noopener" aria-label="Gerät ansehen">📷</a>` : ''}
+      ${photoBtn(ex)}
       <button class="iconbtn" data-a="itemUp" data-i="${i}">↑</button><button class="iconbtn" data-a="itemDown" data-i="${i}">↓</button><button class="iconbtn" data-a="itemMenu" data-i="${i}">⋯</button></div>
       <div class="pgrid">
         <div><label>Sätze</label><input inputmode="numeric" data-f="item" data-k="sets" data-i="${i}" value="${it.sets}"></div>
@@ -508,8 +570,9 @@ function exDetailHTML(id) {
   const e = exById(id), hist = exHistory(id);
   const best = hist.reduce((b, x) => x.e1 > (b ? b.e1 : 0) ? x : b, null);
   let h = `<h2 style="margin-top:6px">${esc(e.name)}</h2><div class="muted small" style="margin-bottom:12px">${esc(e.muscle)}${e.sec && e.sec.length ? ' (+ ' + e.sec.join(', ') + ')' : ''} · ${esc(e.equip)} · Steigerung ${fmtKg(e.inc)}</div>
-    <div class="imglinks">${g80Url(e) ? `<a href="${esc(g80Url(e))}" target="_blank" rel="noopener">📷 ${e.img ? 'Bild' : 'Gerät (gym80' + (e.g80 ? ' ' + e.g80.toUpperCase() : '') + ')'}</a>` : ''}
-      <a class="sec" href="${photoUrl(e)}" target="_blank" rel="noopener">🔎 Fotos aus McFit-Studios</a></div>`;
+    ${imgsFor(e).length ? `<img class="thumb" src="${esc(imgsFor(e)[0])}" alt="" data-a="photo" data-x="${e.id}" onerror="this.remove()">` : ''}
+    <div class="imglinks">${imgsFor(e).length ? `<button data-a="photo" data-x="${e.id}">📷 Foto ansehen</button>` : ''}
+      <a class="sec" href="${photoUrl(e)}" target="_blank" rel="noopener">🔎 McFit-Fotos (online)</a></div>`;
   if (best) h += `<div class="stats"><div class="stat"><b>${Math.round(best.e1)}</b><span>Bestes e1RM kg</span></div>
     <div class="stat"><b>${fmtN(best.best.w)}×${best.best.r}</b><span>Bester Satz</span></div><div class="stat"><b>${hist.length}</b><span>Trainings</span></div></div>`;
   h += `<div class="card">${chartSVG(hist.map(x => ({ t: x.t, y: x.e1 })), 'geschätztes 1RM (kg)')}</div>`;
@@ -584,6 +647,9 @@ function vMore() {
     <div class="row" style="gap:8px"><button class="btn sec grow" data-a="export">Exportieren</button><button class="btn sec grow" data-a="import">Importieren</button></div>
     <input type="file" id="importFile" accept="application/json,.json" style="display:none">
   </div>
+  <div class="card"><h3 style="margin-bottom:4px">Gerätefotos</h3>
+    <div class="muted small" style="margin-bottom:12px">Lädt alle Fotos der Geräte (gym80, ca. 16&nbsp;MB) einmalig auf dieses Gerät. Danach öffnen sie sich per 📷 auch ohne Internet. <span id="imgStatus"></span></div>
+    <button class="btn sec block" data-a="dlImgs">Gerätefotos offline speichern</button></div>
   <div class="card"><h3 style="margin-bottom:6px">Auf dem iPhone installieren</h3>
     <div class="muted small">In Safari öffnen → Teilen-Symbol → <b>„Zum Home-Bildschirm“</b>. Danach startet die App im Vollbild und funktioniert offline.</div></div>
   <div class="card"><h3 style="margin-bottom:6px">So funktioniert die Progression</h3>
@@ -617,7 +683,7 @@ function renderWorkout() {
     const ex = exById(e.exId), t = e.t;
     h += `<div class="card"><div class="row"><div class="grow"><div class="exname">${esc(ex.name)}</div>
       <div class="small muted">${t.sets}× ${t.repMin}–${t.repMax} Wdh. · RIR ${t.rir} · Pause ${fmtClock(t.rest)}</div></div>
-      ${g80Url(ex) ? `<a class="iconbtn" href="${esc(g80Url(ex))}" target="_blank" rel="noopener" aria-label="Gerät ansehen">📷</a>` : ''}
+      ${photoBtn(ex)}
       <button class="iconbtn" data-a="exMenu" data-e="${ei}">⋯</button></div>
       ${e.sugg.text ? `<div class="sugg ${e.sugg.cls}">${e.sugg.text}</div>` : ''}
       <div class="sgrid h"><span>Satz</span><span>Zuletzt</span><span>kg</span><span>Wdh</span><span>RIR</span><span></span></div>`;
@@ -690,6 +756,53 @@ function menu(items) { // items: [label, fn, red?]
   sheetCb = items;
   openSheet(`<div class="menu">${items.map((it, i) => `<button class="${it[2] ? 'red' : ''}" data-a="menuPick" data-i="${i}">${it[0]}</button>`).join('')}<button data-a="closeSheet" style="color:var(--tx2)">Abbrechen</button></div>`);
 }
+/* ---------- Foto-Layer ---------- */
+function openPhoto(exId) {
+  const ex = exById(exId), urls = imgsFor(ex);
+  if (!urls.length) return;
+  $('#phTitle').textContent = ex.name;
+  $('#phSlides').innerHTML = urls.map(u => `<div class="slide"><img src="${esc(u)}" alt="${esc(ex.name)}"
+    onerror="this.outerHTML='<div class=&quot;miss&quot;>📵 Foto nicht offline gespeichert.<br>Einmal mit Internet öffnen oder unter „Mehr → Gerätefotos offline speichern“ laden.</div>'"></div>`).join('');
+  $('#phDots').innerHTML = urls.length > 1 ? urls.map((_, i) => `<i class="${i ? '' : 'on'}"></i>`).join('') : '';
+  $('#phFoot').textContent = ex.img ? 'Eigenes Bild' : `Foto: gym80 · Modell ${String(ex.g80).toUpperCase()} · Ausführung bei McFit kann farblich abweichen`;
+  $('#phSlides').scrollLeft = 0;
+  $('#photo').classList.add('on');
+}
+function closePhoto() { $('#photo').classList.remove('on'); }
+document.addEventListener('scroll', ev => {
+  if (ev.target.id !== 'phSlides') return;
+  const s = ev.target, i = Math.round(s.scrollLeft / s.clientWidth);
+  [...$('#phDots').children].forEach((d, j) => d.classList.toggle('on', i === j));
+}, true);
+async function cachedImgCount() {
+  try { const c = await caches.open(IMG_CACHE); const keys = new Set((await c.keys()).map(r => r.url)); return allImgUrls().filter(u => keys.has(u)).length; }
+  catch (e) { return null; }
+}
+async function updateImgStatus() {
+  const el = $('#imgStatus'); if (!el) return;
+  const n = await cachedImgCount(), all = allImgUrls().length;
+  el.textContent = n == null ? 'Offline-Speicher in diesem Browser nicht verfügbar.' : `${n} von ${all} Fotos offline gespeichert.`;
+}
+async function downloadImgs(btn) {
+  if (!('caches' in window)) return toast('Offline-Speicher nicht verfügbar');
+  if (!navigator.onLine) return toast('Dafür wird eine Internetverbindung benötigt');
+  btn.disabled = true;
+  const c = await caches.open(IMG_CACHE), have = new Set((await c.keys()).map(r => r.url));
+  const todo = allImgUrls().filter(u => !have.has(u));
+  let done = 0, fail = 0;
+  const worker = async () => {
+    while (todo.length) {
+      const u = todo.shift();
+      try { const r = await fetch(u, { mode: 'no-cors', cache: 'no-store' }); await c.put(u, r); } catch (e) { fail++; }
+      done++; btn.textContent = `Lade… ${done}/${done + todo.length}`;
+    }
+  };
+  await Promise.all([worker(), worker(), worker(), worker()]);
+  btn.disabled = false; btn.textContent = 'Gerätefotos offline speichern';
+  toast(fail ? `${fail} Fotos konnten nicht geladen werden` : 'Alle Fotos offline verfügbar');
+  updateImgStatus();
+}
+
 function pickExercise(cb, title = 'Übung wählen') {
   sheetCb = cb; ui.pickFilter = ui.pickFilter || 'Alle'; ui.pickQ = '';
   openSheet(`<h2 style="margin-top:6px">${title}</h2><input type="search" placeholder="Suchen…" data-f="pickQ" style="margin-bottom:10px">
@@ -714,6 +827,9 @@ const scrollTop = () => { $('#view').scrollTop = 0; };
 const A = {
   tab: el => { ui.tab = el.dataset.k; if (ui.tab !== 'plans') { ui.planId = ui.dayId = null; } render(); scrollTop(); },
   closeSheet,
+  photo: el => openPhoto(el.dataset.x),
+  closePhoto,
+  dlImgs: el => downloadImgs(el),
   menuPick: el => { const it = sheetCb && sheetCb[+el.dataset.i]; closeSheet(); if (it) it[1](); },
   start: el => { if (S.current) return toast('Es läuft bereits ein Training'); startWorkout(el.dataset.p, el.dataset.d); },
   startFree: () => startWorkout(null, null),
