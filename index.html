@@ -191,7 +191,7 @@ const fmtDate = t => new Date(t).toLocaleDateString('de-DE', { weekday: 'short',
 const weekStart = (t = Date.now()) => { const d = new Date(t); d.setHours(0,0,0,0); const wd = (d.getDay() + 6) % 7; return d.getTime() - wd * DAY; };
 
 const MUSCLES = ['Brust','Rücken','Schultern','Bizeps','Trizeps','Quadrizeps','Beinbeuger','Gesäß','Waden','Bauch','Unterer Rücken'];
-const EQUIP = ['Maschine','Scheibenmaschine','Kabelzug'];
+const EQUIP = ['Maschine','Scheibenmaschine'];
 
 /* Übungsbibliothek – nur Geräte. McFit-Studios sind mit gym80 ausgestattet;
    g80 = gym80-Produktnummer (Seite mit Fotos des Geräts), q = Suchbegriff für Fotos aus McFit-Studios.
@@ -202,33 +202,32 @@ const DEFAULT_EX = [
   ['schraeg_masch','Schrägbankpresse','Brust','Maschine',5,['Schultern','Trizeps'],'3023n'],
   ['brust_pk','Brustpresse Plate-Loaded','Brust','Scheibenmaschine',2.5,['Trizeps','Schultern'],'4328'],
   ['butterfly','Butterfly','Brust','Maschine',5,[],'3022'],
-  ['crossover','Cable Crossover','Brust','Kabelzug',2.5,[],'4004'],
   // Rücken
-  ['latzug','Latzug am Kabel','Rücken','Kabelzug',5,['Bizeps'],'4116'],
-  ['latzug_eng','Latzug eng (V-Griff)','Rücken','Kabelzug',5,['Bizeps'],'4116'],
   ['latzug_masch','Latzugmaschine','Rücken','Maschine',5,['Bizeps'],'3020'],
+  ['latzug_dual','Latzugmaschine Dual (einarmig möglich)','Rücken','Maschine',5,['Bizeps'],'3044'],
+  ['iso_lat','Iso-Lat (Latzug Plate-Loaded)','Rücken','Scheibenmaschine',2.5,['Bizeps'],'3047'],
   ['klimmzug_masch','Klimmzugmaschine (unterstützt)','Rücken','Maschine',5,['Bizeps'],'3017'],
-  ['rudern_kabel','Rudern am Kabel (sitzend)','Rücken','Kabelzug',5,['Bizeps'],'4016'],
   ['rudern_masch','Rudermaschine','Rücken','Maschine',5,['Bizeps'],'3040'],
+  ['rudern_dual','Rudermaschine Dual','Rücken','Maschine',5,['Bizeps'],'3045'],
+  ['low_row','Low Row (Plate-Loaded)','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4319'],
   ['tbar','T-Bar-Rudern (Maschine)','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4018'],
   ['high_row','High Row','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4340'],
   ['ueberzug','Überzugmaschine','Rücken','Maschine',5,[],'3012n'],
   ['rueckenstrecker','Rückenstrecker','Unterer Rücken','Maschine',5,['Gesäß'],'3007'],
   // Schultern
   ['schulterpresse','Schulterpresse','Schultern','Maschine',5,['Trizeps'],'3032'],
+  ['schulter_dual','Schulterpresse Dual','Schultern','Maschine',5,['Trizeps'],'3043'],
   ['seitheben_masch','Seitheben-Maschine','Schultern','Maschine',2.5,[],'3050'],
-  ['seitheben_kabel','Seitheben am Kabel','Schultern','Kabelzug',2.5,[],'4004'],
+  ['seitheben_pk','Seitheben Plate-Loaded (Dual)','Schultern','Scheibenmaschine',1.25,[],'4325'],
   ['reverse_fly','Reverse Butterfly','Schultern','Maschine',5,['Rücken'],'3025'],
-  ['facepull','Face Pulls am Kabel','Schultern','Kabelzug',2.5,['Rücken'],'4004'],
   // Arme
   ['curl_masch','Bizepsmaschine','Bizeps','Maschine',2.5,[],'3010'],
-  ['curl_kabel','Bizeps-Curls am Kabel','Bizeps','Kabelzug',2.5,[],'4004'],
-  ['hammer_kabel','Hammer-Curls am Kabel (Seil)','Bizeps','Kabelzug',2.5,[],'4004'],
+  ['curl_horizontal','Bizepsmaschine horizontal','Bizeps','Maschine',2.5,[],'3098'],
+  ['curl_pk','Bizepsmaschine Plate-Loaded','Bizeps','Scheibenmaschine',1.25,[],'4338n'],
   ['trizeps_masch','Trizepsmaschine','Trizeps','Maschine',2.5,[],'3011'],
   ['dips_masch','Dipmaschine','Trizeps','Maschine',5,['Brust'],'3036'],
+  ['trizeps_dip_pk','Trizeps-Dip Plate-Loaded (Dual)','Trizeps','Scheibenmaschine',2.5,['Brust'],'4335'],
   ['trizeps_ueber_masch','Trizeps Überkopf (Maschine)','Trizeps','Maschine',2.5,[],'3095'],
-  ['trizeps_kabel','Trizepsdrücken am Kabel','Trizeps','Kabelzug',2.5,[],'4004'],
-  ['trizeps_ueber','Überkopf-Trizeps am Kabel','Trizeps','Kabelzug',2.5,[],'4004'],
   // Beine
   ['beinpresse','Beinpresse sitzend','Quadrizeps','Maschine',5,['Gesäß'],'3030'],
   ['beinpresse_45','45°-Beinpresse','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4023'],
@@ -245,7 +244,7 @@ const DEFAULT_EX = [
   ['wade_bp','Wadenheben an der Beinpresse','Waden','Maschine',5,[],'3030'],
   // Bauch
   ['crunch_masch','Bauchmuskelmaschine','Bauch','Maschine',5,[],'3037'],
-  ['crunch_kabel','Kabel-Crunch','Bauch','Kabelzug',2.5,[],'4004'],
+  ['crunch_masch2','Crunchmaschine','Bauch','Maschine',5,[],'3124'],
   ['rotation','Rotationsmaschine','Bauch','Maschine',5,[],'3225'],
 ].map(([id,name,muscle,equip,inc,sec,g80]) => ({id,name,muscle,equip,inc,sec,g80,custom:false}));
 
@@ -255,7 +254,14 @@ const LEGACY_MAP = {
   klimmzug:'klimmzug_masch', rudern_lh:'tbar', rudern_kh:'rudern_masch', pullover_kabel:'ueberzug', hyper:'rueckenstrecker',
   kreuzheben:'rueckenstrecker', schulter_kh:'schulterpresse', seitheben_kh:'seitheben_masch', curl_lh:'curl_masch', curl_sz:'curl_masch',
   curl_kh:'curl_masch', hammer:'hammer_kabel', french:'trizeps_ueber_masch', kniebeuge:'kniebeuge_masch', kniebeuge_mp:'hackenschmidt',
-  ausfall:'beinpresse_45', bulgarian:'gluteus_kick', rdl:'beinbeuger_liegend', hipthrust:'gluteus_kick', beinheben:'crunch_kabel', plank:'rotation',
+  ausfall:'beinpresse_45', bulgarian:'gluteus_kick', rdl:'beinbeuger_liegend', hipthrust:'gluteus_kick', beinheben:'crunch_masch2', plank:'rotation',
+};
+/* Kabelzug-Übungen (Version 2) → Maschinen; erste Alternative, die am Trainingstag noch nicht vorkommt */
+const CABLE_MAP = {
+  crossover:['butterfly','brust_pk'], latzug:['latzug_masch','latzug_dual','iso_lat'], latzug_eng:['latzug_dual','iso_lat','latzug_masch'],
+  rudern_kabel:['low_row','rudern_dual','rudern_masch'], seitheben_kabel:['seitheben_masch','seitheben_pk'], facepull:['reverse_fly','high_row'],
+  curl_kabel:['curl_horizontal','curl_pk','curl_masch'], hammer_kabel:['curl_pk','curl_horizontal','curl_masch'],
+  trizeps_kabel:['trizeps_masch','trizeps_dip_pk','dips_masch'], trizeps_ueber:['trizeps_ueber_masch','trizeps_masch'], crunch_kabel:['crunch_masch2','crunch_masch','rotation'],
 };
 /* Gerätefotos (gym80) – werden im Offline-Speicher des Geräts abgelegt */
 const IMG_CACHE = 'gymplan-img';
@@ -295,6 +301,16 @@ const G80_IMG = {
   '3027':['2025/07/3027_wandenpresse_sitzend_NC-768x480.webp','2026/03/gym80_3027_seated_calf_press_NC_front.webp','2026/03/gym80_3027_seated_calf_press_NC_side.webp'],
   '3037':['2026/03/gym80_3037_abdominal_machine_NC_overview.webp','2026/03/gym80_3037_abdominal_machine_NC_side-1.webp','2026/03/gym80_3037_abdominal_machine_NC_front-1.webp'],
   '3225':['2025/07/3225_rotationsrmaschine_NC-768x480.webp','2026/03/gym80_3225_rotary_machine_NC_front.webp','2026/03/gym80_3225_rotary_machine_NC_side.webp'],
+  '3044':['2025/07/3044_rueckenzugmaschine_dual_NC-768x480.webp','2026/03/gym80_3044_dual_lat_pulldown_NC_front.webp','2026/03/gym80_3044_dual_lat_pulldown_NC_side.webp'],
+  '3045':['2025/07/3045_rundermaschine_dual_NC-768x480.webp','2026/03/gym80_3045_dual_seated_row_NC_back.webp','2026/03/gym80_3045_dual_seated_row_NC_front.webp'],
+  '4319':['2026/03/gym80_4319_pure_kraft_low_row_dual_NC_overview.webp','2026/03/gym80_4319_pure_kraft_low_row_dual_NC_side.webp','2026/03/gym80_4319_pure_kraft_low_row_dual_NC_front.webp'],
+  '3043':['2025/07/3043_schultepresse_dual_NC-768x480.webp','2026/03/gym80_3043_dual_shoulder_press_NC_side.webp','2026/03/gym80_3043_dual_shoulder_press_NC_front.webp'],
+  '3098':['2026/03/gym80_3098_horizontal_biceps_NC_overview.webp','2026/03/gym80_3098_horizontal_biceps_NC_front-1.webp','2026/03/gym80_3098_horizontal_biceps_NC_side-1.webp'],
+  '4338n':['2025/07/4338n_pure_kraft_bizepsmaschine_NC-768x480.webp','2026/03/gym80_4338n_pure_kraft_biceps_curl_NC_front.webp','2026/03/gym80_4338n_pure_kraft_biceps_curl_NC_side.webp'],
+  '4335':['2025/07/4335_pure_kraft_triyeps_dip_maschine_dual_NC-768x480.webp','2026/03/gym80_4335_pure_kraft_triceps_dip_dual_NC_front-.webp','2026/03/gym80_4335_pure_kraft_triceps_dip_dual_NC_side.webp'],
+  '3124':['2026/04/3124_Crunchmaschine_NC_overview.webp','2026/04/3124_Crunchmaschine_NC_front.webp','2026/04/3124_Crunchmaschine_NC_side.webp'],
+  '3047':['2025/07/3047_iso_lat_NC-768x480.webp','2026/03/gym80_3047_iso_lat_NC_front.webp','2026/03/gym80_3047_iso_lat_NC_side.webp'],
+  '4325':['2025/07/4325_pure_kraft_seithebemaschine_dual_NC-768x480.webp','2026/03/gym80_4325_pure_kraft_shoulder_lateral_raise_dual_NC_front.webp','2026/03/gym80_4325_pure_kraft_shoulder_lateral_raise_dual_NC_side.webp'],
 };
 const G80_BASE = 'https://gym80.de/wp-content/uploads/';
 const imgsFor = ex => ex.img ? [ex.img] : (G80_IMG[ex.g80] || []).map(p => G80_BASE + p);
@@ -306,25 +322,25 @@ const photoUrl = ex => 'https://www.google.com/search?tbm=isch&q=' + encodeURICo
 /* Vorlagen (nur Geräte): [exId, Sätze, minWdh, maxWdh, RIR, Pause(s)] */
 const TEMPLATES = {
   ppl: { name:'Push / Pull / Beine', desc:'3–6× pro Woche · klassischer Split', days:[
-    ['Push',[['brustpresse',3,6,10,2,150],['schraeg_masch',3,8,12,2,120],['schulterpresse',3,8,12,2,120],['seitheben_masch',3,12,15,1,75],['trizeps_kabel',3,10,15,1,75],['butterfly',2,12,15,1,75]]],
-    ['Pull',[['latzug',3,8,12,2,120],['rudern_kabel',3,8,12,2,120],['rudern_masch',2,8,12,2,90],['reverse_fly',3,12,15,1,75],['curl_masch',3,8,12,1,75],['hammer_kabel',2,10,12,1,75]]],
+    ['Push',[['brustpresse',3,6,10,2,150],['schraeg_masch',3,8,12,2,120],['schulterpresse',3,8,12,2,120],['seitheben_masch',3,12,15,1,75],['trizeps_masch',3,10,15,1,75],['butterfly',2,12,15,1,75]]],
+    ['Pull',[['latzug_masch',3,8,12,2,120],['rudern_masch',3,8,12,2,120],['low_row',2,8,12,2,90],['reverse_fly',3,12,15,1,75],['curl_masch',3,8,12,1,75],['curl_horizontal',2,10,12,1,75]]],
     ['Beine',[['hackenschmidt',3,6,10,2,180],['beinpresse',3,10,12,2,150],['beinbeuger_liegend',3,8,12,2,120],['beinbeuger_sitz',3,10,15,1,90],['beinstrecker',3,12,15,1,90],['wade_steh',4,10,15,1,60]]],
   ]},
   ouk: { name:'Ober- / Unterkörper', desc:'4× pro Woche · A/B-Wechsel', days:[
-    ['Oberkörper A',[['brustpresse',3,6,10,2,150],['rudern_masch',3,8,12,2,120],['schulterpresse',3,8,12,2,120],['latzug',3,8,12,2,120],['seitheben_masch',3,12,15,1,60],['curl_masch',2,8,12,1,75],['trizeps_kabel',2,10,15,1,75]]],
+    ['Oberkörper A',[['brustpresse',3,6,10,2,150],['rudern_masch',3,8,12,2,120],['schulterpresse',3,8,12,2,120],['latzug_masch',3,8,12,2,120],['seitheben_masch',3,12,15,1,60],['curl_masch',2,8,12,1,75],['trizeps_masch',2,10,15,1,75]]],
     ['Unterkörper A',[['hackenschmidt',3,6,10,2,180],['beinbeuger_liegend',3,8,12,2,120],['beinstrecker',3,10,15,1,90],['adduktor',2,12,15,1,75],['wade_steh',3,10,15,1,60],['crunch_masch',3,10,15,1,60]]],
-    ['Oberkörper B',[['schraeg_masch',3,8,12,2,120],['latzug_eng',3,8,12,2,120],['butterfly',2,10,15,1,90],['rudern_kabel',3,8,12,2,120],['reverse_fly',3,12,15,1,60],['hammer_kabel',2,10,12,1,60],['trizeps_ueber_masch',2,10,15,1,60]]],
-    ['Unterkörper B',[['beinpresse',3,8,12,2,150],['gluteus_kick',3,10,12,2,90],['beinbeuger_sitz',3,10,15,1,90],['abduktor',2,12,15,1,75],['wade_sitz',3,12,15,1,60],['crunch_kabel',3,10,15,1,60]]],
+    ['Oberkörper B',[['schraeg_masch',3,8,12,2,120],['latzug_dual',3,8,12,2,120],['butterfly',2,10,15,1,90],['low_row',3,8,12,2,120],['reverse_fly',3,12,15,1,60],['curl_horizontal',2,10,12,1,60],['trizeps_ueber_masch',2,10,15,1,60]]],
+    ['Unterkörper B',[['beinpresse',3,8,12,2,150],['gluteus_kick',3,10,12,2,90],['beinbeuger_sitz',3,10,15,1,90],['abduktor',2,12,15,1,75],['wade_sitz',3,12,15,1,60],['crunch_masch2',3,10,15,1,60]]],
   ]},
   gk: { name:'Ganzkörper', desc:'2–3× pro Woche · ideal für Einsteiger', days:[
-    ['Ganzkörper A',[['beinpresse',3,8,12,2,150],['brustpresse',3,8,12,2,120],['latzug',3,8,12,2,120],['beinbeuger_sitz',2,10,15,1,90],['schulterpresse',2,8,12,2,90],['crunch_masch',2,10,15,1,60]]],
+    ['Ganzkörper A',[['beinpresse',3,8,12,2,150],['brustpresse',3,8,12,2,120],['latzug_masch',3,8,12,2,120],['beinbeuger_sitz',2,10,15,1,90],['schulterpresse',2,8,12,2,90],['crunch_masch',2,10,15,1,60]]],
     ['Ganzkörper B',[['hackenschmidt',3,6,10,2,150],['rudern_masch',3,8,12,2,120],['schraeg_masch',3,8,12,2,120],['beinstrecker',2,12,15,1,90],['seitheben_masch',2,12,15,1,60],['curl_masch',2,10,12,1,60],['trizeps_masch',2,10,12,1,60]]],
   ]},
 };
 
 /* ============ State ============ */
 function freshState() {
-  return { version: 2, exercises: DEFAULT_EX.map(e => ({...e})), plans: [], activePlanId: null, workouts: [], current: null,
+  return { version: 3, exercises: DEFAULT_EX.map(e => ({...e})), plans: [], activePlanId: null, workouts: [], current: null,
            settings: { rest: 120, sound: true } };
 }
 function migrate(d) {
@@ -339,6 +355,17 @@ function migrate(d) {
     d.exercises.forEach(e => { if (!e.custom && !defIds.has(e.id)) e.legacy = true; });
     d.version = 2;
   }
+  if (d.version < 3) {
+    // Kabelzug-Übungen in Plänen durch Maschinen ersetzen (ohne Doppelungen am selben Tag)
+    d.plans.forEach(p => p.days.forEach(day => day.items.forEach(it => {
+      const alts = CABLE_MAP[it.exId]; if (!alts) return;
+      it.exId = alts.find(a => !day.items.some(o => o.exId === a)) || alts[0];
+    })));
+    d.version = 3;
+  }
+  // nicht mehr enthaltene Standardübungen: nur mit Verlauf behalten (ausgeblendet)
+  d.exercises = d.exercises.filter(e => e.custom || defIds.has(e.id) || used.has(e.id));
+  d.exercises.forEach(e => { if (!e.custom) e.legacy = !defIds.has(e.id); });
   // Standardübungen aktualisieren/ergänzen (eigene Steigerung bleibt erhalten)
   DEFAULT_EX.forEach(def => {
     const cur = d.exercises.find(e => e.id === def.id);
