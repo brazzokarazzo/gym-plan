@@ -106,6 +106,7 @@ h3{font-size:17px;margin:0;font-weight:650}
 .sgrid{display:grid;grid-template-columns:30px 1fr 64px 52px 46px 40px;gap:6px;align-items:center}
 .sgrid.h{font-size:11px;color:var(--tx3);font-weight:600;text-transform:uppercase;margin:8px 0 4px;letter-spacing:.3px}
 .sgrid.h span{text-align:center}
+.sgrid.c{grid-template-columns:30px 1fr 72px 72px 40px}
 .srow{padding:4px 0;border-radius:10px}
 .srow input{text-align:center;padding:8px 2px;font-weight:600}
 .srow .sn{text-align:center;font-weight:700;color:var(--tx2)}
@@ -190,8 +191,14 @@ const fmtClock = s => { s = Math.max(0, Math.round(s)); return `${Math.floor(s/6
 const fmtDate = t => new Date(t).toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
 const weekStart = (t = Date.now()) => { const d = new Date(t); d.setHours(0,0,0,0); const wd = (d.getDay() + 6) % 7; return d.getTime() - wd * DAY; };
 
-const MUSCLES = ['Brust','Rücken','Schultern','Bizeps','Trizeps','Quadrizeps','Beinbeuger','Gesäß','Waden','Bauch','Unterer Rücken'];
-const EQUIP = ['Maschine','Scheibenmaschine'];
+const STRENGTH_MUSCLES = ['Brust','Rücken','Schultern','Bizeps','Trizeps','Quadrizeps','Beinbeuger','Gesäß','Waden','Bauch','Unterer Rücken'];
+const MUSCLES = [...STRENGTH_MUSCLES, 'Cardio'];
+const EQUIP = ['Maschine','Scheibenmaschine','Cardiogerät'];
+const isCardio = ex => !!ex && ex.muscle === 'Cardio';
+/* Standardwerte für neue Übungen im Plan bzw. Training */
+const DEF_T = () => ({ sets: 3, repMin: 8, repMax: 12, rir: 2, rest: S.settings.rest, minutes: 15, level: 8 });
+const fullT = t => Object.assign(DEF_T(), ...Object.entries(t || {}).filter(([, v]) => v != null && !Number.isNaN(v)).map(([k, v]) => ({ [k]: v })));
+const fmtCardio = s => `Stufe ${fmtN(s.lvl)} · ${fmtN(s.min)} min`;
 
 /* Übungsbibliothek – nur Geräte. McFit-Studios sind mit gym80 ausgestattet;
    g80 = gym80-Produktnummer (Seite mit Fotos des Geräts), q = Suchbegriff für Fotos aus McFit-Studios.
@@ -246,6 +253,12 @@ const DEFAULT_EX = [
   ['crunch_masch','Bauchmuskelmaschine','Bauch','Maschine',5,[],'3037'],
   ['crunch_masch2','Crunchmaschine','Bauch','Maschine',5,[],'3124'],
   ['rotation','Rotationsmaschine','Bauch','Maschine',5,[],'3225'],
+  // Cardio (Stufe + Minuten statt Gewicht + Wiederholungen)
+  ['cardio_rad','Fahrrad sitzend','Cardio','Cardiogerät',1,[],''],
+  ['cardio_liegerad','Fahrrad liegend','Cardio','Cardiogerät',1,[],''],
+  ['cardio_cross','Crosstrainer','Cardio','Cardiogerät',1,[],''],
+  ['cardio_lauf','Laufband','Cardio','Cardiogerät',1,[],''],
+  ['cardio_ruder','Rudergerät','Cardio','Cardiogerät',1,[],''],
 ].map(([id,name,muscle,equip,inc,sec,g80]) => ({id,name,muscle,equip,inc,sec,g80,custom:false}));
 
 /* Alte Hantel-Übungen (Version 1) → Geräte-Ersatz in bestehenden Plänen */
@@ -461,9 +474,11 @@ function nextDay(plan) {
   return plan.days[(i + 1) % plan.days.length];
 }
 function dayMeta(day) {
-  const sets = day.items.reduce((a, i) => a + (+i.sets || 0), 0);
-  const mins = Math.round(day.items.reduce((a, i) => a + (+i.sets || 0) * ((+i.rest || 90) + 45), 0) / 60);
-  return `${day.items.length} Übungen · ${sets} Sätze · ca. ${mins} min`;
+  const str = day.items.filter(i => !isCardio(exById(i.exId))), car = day.items.filter(i => isCardio(exById(i.exId)));
+  const sets = str.reduce((a, i) => a + (+i.sets || 0), 0);
+  const carMin = car.reduce((a, i) => a + (num(i.minutes) ?? 15), 0);
+  const mins = Math.round(str.reduce((a, i) => a + (+i.sets || 0) * ((+i.rest || 90) + 45), 0) / 60 + carMin);
+  return `${day.items.length} Übungen · ${sets} Sätze${car.length ? ` · ${carMin} min Cardio` : ''} · ca. ${mins} min`;
 }
 function vTrain() {
   const plan = planById(S.activePlanId);
@@ -535,13 +550,16 @@ function vDayEdit() {
     h += `<div class="pitem"><div class="row"><div class="grow"><b>${esc(ex.name)}</b><div class="muted small">${esc(ex.muscle)} · ${esc(ex.equip)}</div></div>
       ${photoBtn(ex)}
       <button class="iconbtn" data-a="itemUp" data-i="${i}">↑</button><button class="iconbtn" data-a="itemDown" data-i="${i}">↓</button><button class="iconbtn" data-a="itemMenu" data-i="${i}">⋯</button></div>
-      <div class="pgrid">
+      ${isCardio(ex) ? `<div class="pgrid" style="grid-template-columns:1fr 1fr">
+        <div><label>Minuten</label><input inputmode="decimal" data-f="item" data-k="minutes" data-i="${i}" value="${fmtN(num(it.minutes) ?? 15)}"></div>
+        <div><label>Stufe</label><input inputmode="decimal" data-f="item" data-k="level" data-i="${i}" value="${fmtN(num(it.level) ?? 8)}"></div>
+      </div></div>` : `<div class="pgrid">
         <div><label>Sätze</label><input inputmode="numeric" data-f="item" data-k="sets" data-i="${i}" value="${it.sets}"></div>
         <div><label>Min Wdh</label><input inputmode="numeric" data-f="item" data-k="repMin" data-i="${i}" value="${it.repMin}"></div>
         <div><label>Max Wdh</label><input inputmode="numeric" data-f="item" data-k="repMax" data-i="${i}" value="${it.repMax}"></div>
         <div><label>RIR</label><input inputmode="numeric" data-f="item" data-k="rir" data-i="${i}" value="${it.rir}"></div>
         <div><label>Pause s</label><input inputmode="numeric" data-f="item" data-k="rest" data-i="${i}" value="${it.rest}"></div>
-      </div></div>`;
+      </div></div>`}`;
   });
   if (!d.items.length) h += `<div class="card empty">Noch keine Übungen.</div>`;
   h += `<button class="btn block" data-a="addItem">+ Übung hinzufügen</button>
@@ -552,7 +570,12 @@ function vDayEdit() {
 /* ---------- Übungen ---------- */
 function exHistory(exId) {
   const out = [];
+  const cardio = isCardio(exById(exId));
   S.workouts.forEach(w => w.entries.forEach(e => { if (e.exId === exId && e.sets.length) {
+    if (cardio) {   // Cardio: y = höchste Stufe, dazu Minuten gesamt
+      const lvl = Math.max(...e.sets.map(s => s.lvl || 0));
+      return out.push({ t: w.start, sets: e.sets, e1: lvl, min: e.sets.reduce((a, s) => a + (s.min || 0), 0), vol: 0 });
+    }
     const best = e.sets.reduce((b, s) => e1rm(s.w, s.r, s.rir) > e1rm(b.w, b.r, b.rir) ? s : b, e.sets[0]);
     out.push({ t: w.start, sets: e.sets, best, e1: e1rm(best.w, best.r, best.rir), vol: e.sets.reduce((a, s) => a + (s.w || 0) * (s.r || 0), 0) });
   }}));
@@ -594,17 +617,19 @@ function chartSVG(points, label) {
     <text x="${W-10}" y="12" fill="#a0a0b2" font-size="10" text-anchor="end">${label}</text></svg>`;
 }
 function exDetailHTML(id) {
-  const e = exById(id), hist = exHistory(id);
+  const e = exById(id), hist = exHistory(id), cardio = isCardio(e);
   const best = hist.reduce((b, x) => x.e1 > (b ? b.e1 : 0) ? x : b, null);
-  let h = `<h2 style="margin-top:6px">${esc(e.name)}</h2><div class="muted small" style="margin-bottom:12px">${esc(e.muscle)}${e.sec && e.sec.length ? ' (+ ' + e.sec.join(', ') + ')' : ''} · ${esc(e.equip)} · Steigerung ${fmtKg(e.inc)}</div>
+  let h = `<h2 style="margin-top:6px">${esc(e.name)}</h2><div class="muted small" style="margin-bottom:12px">${esc(e.muscle)}${e.sec && e.sec.length ? ' (+ ' + e.sec.join(', ') + ')' : ''} · ${esc(e.equip)}${cardio ? ' · Stufe + Minuten' : ' · Steigerung ' + fmtKg(e.inc)}</div>
     ${imgsFor(e).length ? `<img class="thumb" src="${esc(imgsFor(e)[0])}" alt="" data-a="photo" data-x="${e.id}" onerror="this.remove()">` : ''}
     <div class="imglinks">${imgsFor(e).length ? `<button data-a="photo" data-x="${e.id}">📷 Foto ansehen</button>` : ''}
       <a class="sec" href="${photoUrl(e)}" target="_blank" rel="noopener">🔎 McFit-Fotos (online)</a></div>`;
-  if (best) h += `<div class="stats"><div class="stat"><b>${Math.round(best.e1)}</b><span>Bestes e1RM kg</span></div>
+  if (best && cardio) h += `<div class="stats"><div class="stat"><b>${fmtN(best.e1)}</b><span>Höchste Stufe</span></div>
+    <div class="stat"><b>${fmtN(hist.reduce((a, x) => a + x.min, 0))}</b><span>Minuten gesamt</span></div><div class="stat"><b>${hist.length}</b><span>Einheiten</span></div></div>`;
+  else if (best) h += `<div class="stats"><div class="stat"><b>${Math.round(best.e1)}</b><span>Bestes e1RM kg</span></div>
     <div class="stat"><b>${fmtN(best.best.w)}×${best.best.r}</b><span>Bester Satz</span></div><div class="stat"><b>${hist.length}</b><span>Trainings</span></div></div>`;
-  h += `<div class="card">${chartSVG(hist.map(x => ({ t: x.t, y: x.e1 })), 'geschätztes 1RM (kg)')}</div>`;
+  h += `<div class="card">${chartSVG(hist.map(x => ({ t: x.t, y: x.e1 })), cardio ? 'höchste Stufe' : 'geschätztes 1RM (kg)')}</div>`;
   if (hist.length) h += `<h3 style="margin:14px 0 6px">Letzte Einheiten</h3><div class="list">` + hist.slice(-8).reverse().map(x =>
-    `<div class="item"><div class="grow small"><b>${fmtDate(x.t)}</b><div class="muted">${x.sets.map(s => `${fmtN(s.w)}×${s.r}${s.rir != null ? ' @' + s.rir : ''}`).join(' · ')}</div></div></div>`).join('') + '</div>';
+    `<div class="item"><div class="grow small"><b>${fmtDate(x.t)}</b><div class="muted">${x.sets.map(s => cardio ? fmtCardio(s) : `${fmtN(s.w)}×${s.r}${s.rir != null ? ' @' + s.rir : ''}`).join(' · ')}</div></div></div>`).join('') + '</div>';
   h += `<div class="row" style="margin-top:14px;gap:8px"><button class="btn sec grow" data-a="editEx" data-x="${id}">Bearbeiten</button>${e.custom ? `<button class="btn danger" data-a="delEx" data-x="${id}">Löschen</button>` : ''}</div>`;
   return h;
 }
@@ -624,25 +649,27 @@ function vHist() {
   const ws = weekStart(), wk = S.workouts.filter(w => w.start >= ws);
   const vol = wk.reduce((a, w) => a + w.entries.reduce((b, e) => b + e.sets.reduce((c, s) => c + (s.w || 0) * (s.r || 0), 0), 0), 0);
   const last7 = S.workouts.filter(w => w.start >= Date.now() - 7 * DAY);
-  const ms = {}; MUSCLES.forEach(m => ms[m] = 0);
+  const ms = {}; STRENGTH_MUSCLES.forEach(m => ms[m] = 0);
+  let carMin = 0;
   last7.forEach(w => w.entries.forEach(e => { const ex = exById(e.exId); const n = e.sets.length;
+    if (isCardio(ex)) { carMin += e.sets.reduce((a, s) => a + (s.min || 0), 0); return; }
     if (ms[ex.muscle] != null) ms[ex.muscle] += n; (ex.sec || []).forEach(m => { if (ms[m] != null) ms[m] += n * 0.5; }); }));
   const maxS = Math.max(22, ...Object.values(ms));
   let h = `<div class="top"><h1>Verlauf</h1></div>
     <div class="stats"><div class="stat"><b>${wk.length}</b><span>Trainings Woche</span></div><div class="stat"><b>${vol >= 10000 ? fmtN(Math.round(vol / 100) / 10) + 't' : Math.round(vol)}</b><span>Volumen ${vol >= 10000 ? '' : 'kg'}</span></div><div class="stat"><b>${S.workouts.length}</b><span>Gesamt</span></div></div>
     <div class="card"><div class="row between" style="margin-bottom:10px"><h3>Sätze pro Muskel</h3><span class="tiny muted">letzte 7 Tage · grün = 10–20</span></div>`;
-  MUSCLES.forEach(m => {
+  STRENGTH_MUSCLES.forEach(m => {
     const v = ms[m];
     h += `<div style="margin:9px 0"><div class="row between small"><span>${m}</span><span class="muted">${fmtN(v)}</span></div>
       <div class="bar"><div class="zone" style="left:${10/maxS*100}%;width:${10/maxS*100}%"></div><i style="width:${Math.min(100, v / maxS * 100)}%;${v >= 10 && v <= 20 ? 'background:var(--ok)' : ''}"></i></div></div>`;
   });
-  h += `</div>`;
+  h += `<div class="row between small" style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line)"><span>🚴 Cardio</span><span class="muted">${fmtN(carMin)} min</span></div></div>`;
   const used = [...new Set(S.workouts.flatMap(w => w.entries.map(e => e.exId)))];
   if (used.length) {
     if (!used.includes(ui.statEx)) ui.statEx = used[0];
-    h += `<div class="card"><div class="row between" style="margin-bottom:8px"><h3>Kraftentwicklung</h3></div>
+    h += `<div class="card"><div class="row between" style="margin-bottom:8px"><h3>Entwicklung</h3></div>
       <select data-f="statEx" style="margin-bottom:10px">${used.map(id => `<option value="${id}" ${id === ui.statEx ? 'selected' : ''}>${esc(exById(id).name)}</option>`).join('')}</select>
-      ${chartSVG(exHistory(ui.statEx).map(x => ({ t: x.t, y: x.e1 })), 'geschätztes 1RM (kg)')}</div>`;
+      ${chartSVG(exHistory(ui.statEx).map(x => ({ t: x.t, y: x.e1 })), isCardio(exById(ui.statEx)) ? 'höchste Stufe' : 'geschätztes 1RM (kg)')}</div>`;
   }
   h += `<h2>Trainings</h2>`;
   if (!S.workouts.length) h += `<div class="card empty">Noch keine Trainings aufgezeichnet.</div>`;
@@ -657,7 +684,7 @@ function woDetailHTML(id) {
   const w = S.workouts.find(x => x.id === id); if (!w) return '';
   const vol = w.entries.reduce((b, e) => b + e.sets.reduce((c, s) => c + (s.w || 0) * (s.r || 0), 0), 0);
   return `<h2 style="margin-top:6px">${esc(w.name)}</h2><div class="muted small" style="margin-bottom:12px">${fmtDate(w.start)} · ${new Date(w.start).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} · ${fmtDur((w.end||w.start) - w.start)} · ${Math.round(vol)} kg Volumen</div>
-    ${w.entries.map(e => `<div class="card"><b>${esc(exById(e.exId).name)}</b><div class="small muted" style="margin-top:4px">${e.sets.map((s, i) => `${i + 1}. ${fmtN(s.w)} kg × ${s.r}${s.rir != null ? ' @ RIR ' + s.rir : ''}`).join('<br>')}</div></div>`).join('')}
+    ${w.entries.map(e => { const c = isCardio(exById(e.exId)); return `<div class="card"><b>${c ? '🚴 ' : ''}${esc(exById(e.exId).name)}</b><div class="small muted" style="margin-top:4px">${e.sets.map((s, i) => c ? `${i + 1}. ${fmtCardio(s)}` : `${i + 1}. ${fmtN(s.w)} kg × ${s.r}${s.rir != null ? ' @ RIR ' + s.rir : ''}`).join('<br>')}</div></div>`; }).join('')}
     <button class="btn danger block" data-a="delWo" data-w="${w.id}">Training löschen</button>`;
 }
 
@@ -680,22 +707,34 @@ function vMore() {
   <div class="card"><h3 style="margin-bottom:6px">Auf dem iPhone installieren</h3>
     <div class="muted small">In Safari öffnen → Teilen-Symbol → <b>„Zum Home-Bildschirm“</b>. Danach startet die App im Vollbild und funktioniert offline.</div></div>
   <div class="card"><h3 style="margin-bottom:6px">So funktioniert die Progression</h3>
-    <div class="muted small">Jede Übung hat einen Wiederholungsbereich (z.&nbsp;B. 8–12) und ein RIR-Ziel. Schaffst du in allen Sätzen die obere Grenze, schlägt die App beim nächsten Training das Gewicht + Steigerung vor (Double Progression). Sonst: gleiches Gewicht, eine Wiederholung mehr. Liegst du deutlich unter dem Bereich, wird weniger Gewicht empfohlen. Die Kraftkurve nutzt das geschätzte 1RM (Epley, inkl. RIR).</div></div>
+    <div class="muted small">Jede Übung hat einen Wiederholungsbereich (z.&nbsp;B. 8–12) und ein RIR-Ziel. Schaffst du in allen Sätzen die obere Grenze, schlägt die App beim nächsten Training das Gewicht + Steigerung vor (Double Progression). Sonst: gleiches Gewicht, eine Wiederholung mehr. Liegst du deutlich unter dem Bereich, wird weniger Gewicht empfohlen. Die Kraftkurve nutzt das geschätzte 1RM (Epley, inkl. RIR).<br><br><b>Cardio</b> (Fahrrad, Crosstrainer, Laufband, Rudergerät) planst du mit Minuten und Stufe. Hast du die Zielminuten geschafft, schlägt die App beim nächsten Mal eine Stufe mehr vor.</div></div>
   <button class="btn danger block" data-a="reset">Alle Daten löschen</button>
   <p class="tiny muted" style="text-align:center;margin-top:16px">Gym Plan · läuft komplett lokal · keine Konten, kein Server</p>`;
 }
 
 /* ============ Workout ============ */
+function cardioSuggest(t, last) {
+  if (!last) return { lvl: t.level, cls: '', text: `Ziel: <b>${fmtN(t.minutes)} min</b> auf Stufe <b>${fmtN(t.level)}</b>.` };
+  const lvl = Math.max(...last.sets.map(s => s.lvl || 0)), min = last.sets.reduce((a, s) => a + (s.min || 0), 0);
+  if (min >= t.minutes) return { lvl: lvl + 1, cls: 'up', text: `↑ Letztes Mal ${fmtN(min)} min auf Stufe ${fmtN(lvl)} geschafft → versuche <b>Stufe ${fmtN(lvl + 1)}</b>` };
+  return { lvl, cls: '', text: `→ <b>Stufe ${fmtN(lvl)}</b> halten, Ziel: <b>${fmtN(t.minutes)} min</b> (letztes Mal ${fmtN(min)} min)` };
+}
 function makeEntry(exId, t) {
-  const sg = suggest(exId, t);
+  t = fullT(t);
   const last = lastPerf(exId);
+  if (isCardio(exById(exId))) {
+    const sg = cardioSuggest(t, last);
+    return { id: uid(), exId, t, cardio: true, sugg: sg, prev: last ? last.sets.map(fmtCardio) : [],
+      sets: [{ lvl: fmtN(sg.lvl), min: '', done: false }] };
+  }
+  const sg = suggest(exId, t);
   return { id: uid(), exId, t, sugg: sg, prev: last ? last.sets.map(s => `${fmtN(s.w)}×${s.r}`) : [],
     sets: Array.from({ length: Math.max(1, +t.sets || 1) }, () => ({ w: sg.w != null ? fmtN(sg.w) : '', r: '', rir: '', done: false })) };
 }
 function startWorkout(planId, dayId) {
   const p = planById(planId), d = p && p.days.find(x => x.id === dayId);
   S.current = { id: uid(), planId: planId || null, dayId: dayId || null, name: d ? d.name : 'Freies Training', start: Date.now(), timer: null,
-    entries: d ? d.items.map(it => makeEntry(it.exId, { sets: +it.sets, repMin: +it.repMin, repMax: +it.repMax, rir: +it.rir, rest: +it.rest })) : [] };
+    entries: d ? d.items.map(it => makeEntry(it.exId, { sets: +it.sets, repMin: +it.repMin, repMax: +it.repMax, rir: +it.rir, rest: +it.rest, minutes: num(it.minutes), level: num(it.level) })) : [] };
   ui.woOpen = true; save(); render(); unlockAudio();
 }
 function renderWorkout() {
@@ -708,6 +747,22 @@ function renderWorkout() {
     <button class="btn sm" data-a="finishWo">Fertig</button></div><div id="woscroll">`;
   c.entries.forEach((e, ei) => {
     const ex = exById(e.exId), t = e.t;
+    if (e.cardio) {
+      h += `<div class="card"><div class="row"><div class="grow"><div class="exname">🚴 ${esc(ex.name)}</div>
+        <div class="small muted">Ziel: ${fmtN(t.minutes)} min · Stufe ${fmtN(t.level)}</div></div>
+        ${photoBtn(ex)}<button class="iconbtn" data-a="exMenu" data-e="${ei}">⋯</button></div>
+        ${e.sugg.text ? `<div class="sugg ${e.sugg.cls}">${e.sugg.text}</div>` : ''}
+        <div class="sgrid c h"><span>#</span><span>Zuletzt</span><span>Stufe</span><span>Min</span><span></span></div>`;
+      e.sets.forEach((s, si) => {
+        h += `<div class="sgrid c srow ${s.done ? 'done' : ''}"><span class="sn">${si + 1}</span><span class="prev">${esc(e.prev[si] || '–')}</span>
+          <input inputmode="decimal" data-f="set" data-k="lvl" data-e="${ei}" data-s="${si}" value="${esc(s.lvl)}" placeholder="${fmtN(t.level)}">
+          <input inputmode="decimal" data-f="set" data-k="min" data-e="${ei}" data-s="${si}" value="${esc(s.min)}" placeholder="${fmtN(t.minutes)}">
+          <button class="chk" data-a="toggleSet" data-e="${ei}" data-s="${si}">✓</button></div>`;
+      });
+      h += `<div class="row" style="margin-top:8px;gap:8px"><button class="btn ghost sm" data-a="addSet" data-e="${ei}">+ Abschnitt</button>
+        ${e.sets.length > 1 ? `<button class="btn ghost sm" style="color:var(--tx3)" data-a="delSet" data-e="${ei}">− Abschnitt</button>` : ''}</div></div>`;
+      return;
+    }
     h += `<div class="card"><div class="row"><div class="grow"><div class="exname">${esc(ex.name)}</div>
       <div class="small muted">${t.sets}× ${t.repMin}–${t.repMax} Wdh. · RIR ${t.rir} · Pause ${fmtClock(t.rest)}</div></div>
       ${photoBtn(ex)}
@@ -760,15 +815,17 @@ setInterval(() => {
 
 function finishWorkout() {
   const c = S.current;
-  const entries = c.entries.map(e => ({ exId: e.exId, t: e.t,
-    sets: e.sets.filter(s => s.done).map(s => ({ w: num(s.w) || 0, r: num(s.r) || 0, rir: num(s.rir) })) })).filter(e => e.sets.length);
+  const entries = c.entries.map(e => ({ exId: e.exId, t: e.t, ...(e.cardio ? { cardio: true } : {}),
+    sets: e.sets.filter(s => s.done).map(s => e.cardio ? { lvl: num(s.lvl) || 0, min: num(s.min) || 0 } : { w: num(s.w) || 0, r: num(s.r) || 0, rir: num(s.rir) }) })).filter(e => e.sets.length);
+  const carMin = entries.filter(e => e.cardio).reduce((a, e) => a + e.sets.reduce((b, s) => b + s.min, 0), 0);
+  const strSets = entries.filter(e => !e.cardio).reduce((a, e) => a + e.sets.length, 0);
   if (!entries.length) { if (confirm('Keine abgeschlossenen Sätze. Training verwerfen?')) { S.current = null; ui.woOpen = false; save(); render(); } return; }
   const w = { id: c.id, planId: c.planId, dayId: c.dayId, name: c.name, start: c.start, end: Date.now(), entries };
-  const prs = entries.filter(e => { const b = bestE1rm(e.exId); const now = Math.max(...e.sets.map(s => e1rm(s.w, s.r, s.rir))); return b > 0 && now > b + 0.01; });
+  const prs = entries.filter(e => !e.cardio).filter(e => { const b = bestE1rm(e.exId); const now = Math.max(...e.sets.map(s => e1rm(s.w, s.r, s.rir))); return b > 0 && now > b + 0.01; });
   S.workouts.push(w); S.current = null; ui.woOpen = false; save(); render();
-  const vol = entries.reduce((b, e) => b + e.sets.reduce((c2, s) => c2 + s.w * s.r, 0), 0);
+  const vol = entries.reduce((b, e) => b + e.sets.reduce((c2, s) => c2 + (s.w || 0) * (s.r || 0), 0), 0);
   openSheet(`<div style="text-align:center;padding:10px 0 4px"><div style="font-size:48px">🏆</div><h2 style="margin:6px 0 2px">Starkes Training!</h2><div class="muted">${esc(w.name)}</div></div>
-    <div class="stats" style="margin-top:14px"><div class="stat"><b>${fmtDur(w.end - w.start)}</b><span>Dauer</span></div><div class="stat"><b>${entries.reduce((a, e) => a + e.sets.length, 0)}</b><span>Sätze</span></div><div class="stat"><b>${Math.round(vol)}</b><span>kg Volumen</span></div></div>
+    <div class="stats" style="margin-top:14px"><div class="stat"><b>${fmtDur(w.end - w.start)}</b><span>Dauer</span></div><div class="stat"><b>${strSets}</b><span>Sätze</span></div>${carMin ? `<div class="stat"><b>${fmtN(carMin)}</b><span>min Cardio</span></div>` : `<div class="stat"><b>${Math.round(vol)}</b><span>kg Volumen</span></div>`}</div>
     ${prs.length ? `<div class="card"><div class="pr" style="margin-bottom:6px">⭐ Neue Rekorde (e1RM)</div>${prs.map(e => `<div class="small">${esc(exById(e.exId).name)}</div>`).join('')}</div>` : ''}
     <button class="btn block" data-a="closeSheet">Schließen</button>`);
 }
@@ -871,6 +928,10 @@ const A = {
   toggleSet: el => {
     unlockAudio();
     const e = S.current.entries[+el.dataset.e], s = e.sets[+el.dataset.s];
+    if (e.cardio) {
+      if (!s.done) { if (s.lvl === '') s.lvl = fmtN(e.t.level); if (s.min === '') s.min = fmtN(e.t.minutes); }
+      s.done = !s.done; save(); renderWorkout(); return;   // kein Pausentimer bei Cardio
+    }
     if (!s.done) {
       if (s.r === '') s.r = String(e.sugg.r || e.t.repMax);
       if (s.rir === '') s.rir = String(e.t.rir);
@@ -882,12 +943,13 @@ const A = {
     } else s.done = false;
     save(); renderWorkout();
   },
-  addSet: el => { const e = S.current.entries[+el.dataset.e]; const l = e.sets[e.sets.length - 1]; e.sets.push({ w: l ? l.w : '', r: '', rir: '', done: false }); save(); renderWorkout(); },
+  addSet: el => { const e = S.current.entries[+el.dataset.e]; const l = e.sets[e.sets.length - 1];
+    e.sets.push(e.cardio ? { lvl: l ? l.lvl : '', min: '', done: false } : { w: l ? l.w : '', r: '', rir: '', done: false }); save(); renderWorkout(); },
   delSet: el => { const e = S.current.entries[+el.dataset.e]; if (e.sets.length > 1) e.sets.pop(); save(); renderWorkout(); },
   timerAdd: el => { const t = S.current.timer; if (!t) return; t.end += (+el.dataset.k) * 1000; t.total = Math.max(1, t.total + (+el.dataset.k)); if (t.end > Date.now()) t.beeped = false; save(); },
   timerStop: () => { S.current.timer = null; save(); renderWorkout(); },
   woAddEx: () => pickExercise(id => {
-    closeSheet(); S.current.entries.push(makeEntry(id, { sets: 3, repMin: 8, repMax: 12, rir: 2, rest: S.settings.rest })); save(); renderWorkout();
+    closeSheet(); S.current.entries.push(makeEntry(id, {})); save(); renderWorkout();
     setTimeout(() => { const s = $('#woscroll'); s.scrollTop = s.scrollHeight; }, 50);
   }),
   exMenu: el => {
@@ -935,13 +997,13 @@ const A = {
       ['Tag löschen', () => { if (!confirm(`„${d.name}“ löschen?`)) return; p.days = p.days.filter(x => x !== d); ui.dayId = null; save(); render(); }, true],
     ]);
   },
-  addItem: () => pickExercise(id => { curDay().items.push({ id: uid(), exId: id, sets: 3, repMin: 8, repMax: 12, rir: 2, rest: 120 }); save(); closeSheet(); render(); $('#view').scrollTop = 1e6; }),
+  addItem: () => pickExercise(id => { curDay().items.push({ id: uid(), exId: id, sets: 3, repMin: 8, repMax: 12, rir: 2, rest: 120, minutes: 15, level: 8 }); save(); closeSheet(); render(); $('#view').scrollTop = 1e6; }),
   itemUp: el => { move(curDay().items, +el.dataset.i, -1); save(); render(); },
   itemDown: el => { move(curDay().items, +el.dataset.i, 1); save(); render(); },
   itemMenu: el => {
     const d = curDay(), i = +el.dataset.i;
     menu([
-      ['Übung tauschen', () => pickExercise(id => { d.items[i].exId = id; save(); closeSheet(); render(); }, 'Übung tauschen')],
+      ['Übung tauschen', () => pickExercise(id => { d.items[i] = Object.assign({ sets: 3, repMin: 8, repMax: 12, rir: 2, rest: 120, minutes: 15, level: 8 }, d.items[i], { exId: id }); save(); closeSheet(); render(); }, 'Übung tauschen')],
       ['Verlauf ansehen', () => openSheet(exDetailHTML(d.items[i].exId))],
       ['Entfernen', () => { d.items.splice(i, 1); save(); render(); }, true],
     ]);
@@ -998,7 +1060,7 @@ document.addEventListener('click', ev => {
 document.addEventListener('input', ev => {
   const el = ev.target, f = el.dataset && el.dataset.f; if (!f) return;
   if (f === 'set') { const s = S.current.entries[+el.dataset.e].sets[+el.dataset.s]; s[el.dataset.k] = el.value.replace(/[^\d.,]/g, ''); save(); return; }
-  if (f === 'item') { curDay().items[+el.dataset.i][el.dataset.k] = Math.max(0, parseInt(el.value) || 0); save(); return; }
+  if (f === 'item') { const k = el.dataset.k; curDay().items[+el.dataset.i][k] = (k === 'level' || k === 'minutes') ? Math.max(0, num(el.value) || 0) : Math.max(0, parseInt(el.value) || 0); save(); return; }
   if (f === 'planName') { curPlan().name = el.value; save(); return; }
   if (f === 'dayName') { curDay().name = el.value; save(); return; }
   if (f === 'setRest') { S.settings.rest = Math.max(0, parseInt(el.value) || 0); save(); return; }

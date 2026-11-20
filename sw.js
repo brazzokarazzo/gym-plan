@@ -1,5 +1,5 @@
 // Offline-Cache: App-Dateien werden beim ersten Aufruf gespeichert.
-const CACHE = 'gymplan-v4';
+const CACHE = 'gymplan-v5';
 const IMG_CACHE = 'gymplan-img';   // Gerätefotos (bleibt bei Updates erhalten)
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
