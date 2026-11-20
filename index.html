@@ -70,6 +70,9 @@ h3{font-size:17px;margin:0;font-weight:650}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;padding:7px 13px;border-radius:99px;background:var(--bg3);color:var(--tx2);font-size:14px;font-weight:600}
 .chip.on{background:var(--acc);color:#fff}
+.chips.area .chip{background:transparent;border:1px solid var(--line);padding:6px 12px}
+.chips.area .chip.on{background:var(--accbg);color:var(--acc);border-color:var(--acc)}
+.hnpill{color:var(--acc);font-weight:600}
 .hero{background:linear-gradient(135deg,#ff6a3d,#c2185b);border:0;color:#fff}
 .hero .muted{color:rgba(255,255,255,.8)}
 .hero .btn{background:#fff;color:#c2185b}
@@ -192,8 +195,8 @@ const fmtDate = t => new Date(t).toLocaleDateString('de-DE', { weekday: 'short',
 const weekStart = (t = Date.now()) => { const d = new Date(t); d.setHours(0,0,0,0); const wd = (d.getDay() + 6) % 7; return d.getTime() - wd * DAY; };
 
 const STRENGTH_MUSCLES = ['Brust','Rücken','Schultern','Bizeps','Trizeps','Quadrizeps','Beinbeuger','Gesäß','Waden','Bauch','Unterer Rücken'];
-const MUSCLES = [...STRENGTH_MUSCLES, 'Cardio'];
-const EQUIP = ['Maschine','Scheibenmaschine','Cardiogerät'];
+const MUSCLES = [...STRENGTH_MUSCLES, 'Variabel', 'Cardio'];
+const EQUIP = ['Maschine','Scheibenmaschine','Kabelzug','Freihantel-Station','Bank','Cardiogerät'];
 const isCardio = ex => !!ex && ex.muscle === 'Cardio';
 /* Standardwerte für neue Übungen im Plan bzw. Training */
 const DEF_T = () => ({ sets: 3, repMin: 8, repMax: 12, rir: 2, rest: S.settings.rest, minutes: 15, level: 8 });
@@ -203,31 +206,43 @@ const fmtCardio = s => `Stufe ${fmtN(s.lvl)} · ${fmtN(s.min)} min`;
 /* Übungsbibliothek – nur Geräte. McFit-Studios sind mit gym80 ausgestattet;
    g80 = gym80-Produktnummer (Seite mit Fotos des Geräts), q = Suchbegriff für Fotos aus McFit-Studios.
    Je nach Studio können einzelne Modelle abweichen. */
+/* Trainingsbereiche im McFit Heilbronn ("HN" = gibt es in Heilbronn) */
+const AB = 'Basic Bereich', AF = 'Freihantelbereich', AU = 'Functionalbereich', AC = 'Cardiobereich';
+const AREAS = [AB, AF, AU, AC];
+const AREA_SHORT = { [AB]: 'Basic', [AF]: 'Freihantel', [AU]: 'Functional', [AC]: 'Cardio' };
 const DEFAULT_EX = [
   // Brust
-  ['brustpresse','Brustpresse','Brust','Maschine',5,['Trizeps','Schultern'],'3016'],
+  ['brustpresse','HN Brustpresse','Brust','Maschine',5,['Trizeps','Schultern'],'3016',[AB]],
+  ['bank_dual','HN Bankdrücken Dual','Brust','Scheibenmaschine',2.5,['Trizeps','Schultern'],'4331',[AF]],
+  ['inner_chest','HN Inner-Chest Press','Brust','Maschine',5,['Trizeps'],'3097',[AF]],
+  ['butterfly','HN Butterfly','Brust','Maschine',5,[],'3022',[AB]],
+  ['bank_station','HN Bankdrück-Station','Brust','Freihantel-Station',2.5,['Trizeps','Schultern'],'4097',[AF]],
+  ['schraeg_station','HN Schrägbank-Station','Brust','Freihantel-Station',2.5,['Schultern','Trizeps'],'4096',[AF]],
+  ['negativ_station','HN Negativbankdrück-Station','Brust','Freihantel-Station',2.5,['Trizeps'],'4107',[AF]],
   ['schraeg_masch','Schrägbankpresse','Brust','Maschine',5,['Schultern','Trizeps'],'3023n'],
   ['brust_pk','Brustpresse Plate-Loaded','Brust','Scheibenmaschine',2.5,['Trizeps','Schultern'],'4328'],
-  ['butterfly','Butterfly','Brust','Maschine',5,[],'3022'],
   // Rücken
-  ['latzug_masch','Latzugmaschine','Rücken','Maschine',5,['Bizeps'],'3020'],
+  ['latzug_masch','HN Latzug','Rücken','Maschine',5,['Bizeps'],'3020',[AB, AF]],
+  ['rudern_masch','HN Rudermaschine sitzend','Rücken','Maschine',5,['Bizeps'],'3040',[AB]],
+  ['high_row','HN High-Row','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4340',[AF]],
+  ['low_row','HN Low Row','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4319',[AF]],
+  ['tbar','HN T-Bar-Rudern','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4018',[AF]],
+  ['rueckenstrecker','HN Rückenstrecker','Unterer Rücken','Maschine',5,['Gesäß'],'3007',[AB]],
+  ['hyperext','HN Hyperextension','Unterer Rücken','Bank',2.5,['Gesäß','Beinbeuger'],'4119',[AU]],
   ['latzug_dual','Latzugmaschine Dual (einarmig möglich)','Rücken','Maschine',5,['Bizeps'],'3044'],
   ['iso_lat','Iso-Lat (Latzug Plate-Loaded)','Rücken','Scheibenmaschine',2.5,['Bizeps'],'3047'],
   ['klimmzug_masch','Klimmzugmaschine (unterstützt)','Rücken','Maschine',5,['Bizeps'],'3017'],
-  ['rudern_masch','Rudermaschine','Rücken','Maschine',5,['Bizeps'],'3040'],
   ['rudern_dual','Rudermaschine Dual','Rücken','Maschine',5,['Bizeps'],'3045'],
-  ['low_row','Low Row (Plate-Loaded)','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4319'],
-  ['tbar','T-Bar-Rudern (Maschine)','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4018'],
-  ['high_row','High Row','Rücken','Scheibenmaschine',2.5,['Bizeps'],'4340'],
   ['ueberzug','Überzugmaschine','Rücken','Maschine',5,[],'3012n'],
-  ['rueckenstrecker','Rückenstrecker','Unterer Rücken','Maschine',5,['Gesäß'],'3007'],
   // Schultern
+  ['nacken','HN Nackendrückmaschine','Schultern','Maschine',5,['Trizeps'],'3096',[AB]],
+  ['seitheben_pk','HN Seitheben Dual','Schultern','Scheibenmaschine',1.25,[],'4325',[AF]],
+  ['reverse_fly','HN Butterfly Reverse','Schultern','Maschine',5,['Rücken'],'3025',[AB]],
   ['schulterpresse','Schulterpresse','Schultern','Maschine',5,['Trizeps'],'3032'],
   ['schulter_dual','Schulterpresse Dual','Schultern','Maschine',5,['Trizeps'],'3043'],
   ['seitheben_masch','Seitheben-Maschine','Schultern','Maschine',2.5,[],'3050'],
-  ['seitheben_pk','Seitheben Plate-Loaded (Dual)','Schultern','Scheibenmaschine',1.25,[],'4325'],
-  ['reverse_fly','Reverse Butterfly','Schultern','Maschine',5,['Rücken'],'3025'],
   // Arme
+  ['curl_dual','HN Bizepsmaschine Dual','Bizeps','Scheibenmaschine',1.25,[],'4355',[AF]],
   ['curl_masch','Bizepsmaschine','Bizeps','Maschine',2.5,[],'3010'],
   ['curl_horizontal','Bizepsmaschine horizontal','Bizeps','Maschine',2.5,[],'3098'],
   ['curl_pk','Bizepsmaschine Plate-Loaded','Bizeps','Scheibenmaschine',1.25,[],'4338n'],
@@ -236,30 +251,45 @@ const DEFAULT_EX = [
   ['trizeps_dip_pk','Trizeps-Dip Plate-Loaded (Dual)','Trizeps','Scheibenmaschine',2.5,['Brust'],'4335'],
   ['trizeps_ueber_masch','Trizeps Überkopf (Maschine)','Trizeps','Maschine',2.5,[],'3095'],
   // Beine
-  ['beinpresse','Beinpresse sitzend','Quadrizeps','Maschine',5,['Gesäß'],'3030'],
-  ['beinpresse_45','45°-Beinpresse','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4023'],
-  ['hackenschmidt','Hackenschmidt','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4159n'],
-  ['kniebeuge_masch','Kniebeugemaschine','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4038n'],
-  ['beinstrecker','Beinstrecker','Quadrizeps','Maschine',5,[],'3001'],
-  ['beinbeuger_liegend','Beinbeuger liegend','Beinbeuger','Maschine',5,[],'3002'],
+  ['beinpresse','HN Beinpresse sitzend','Quadrizeps','Maschine',5,['Gesäß'],'3030',[AB]],
+  ['beinpresse_45','HN 45-Grad-Beinpresse','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4023',[AF]],
+  ['pivot_bp','HN Pivot Beinpresse','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4324',[AF]],
+  ['hackenschmidt','HN Hackenschmidt','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4159n',[AF]],
+  ['kniebeuge_masch','HN V-Squat','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4038n',[AF]],
+  ['belt_squat','HN Belt-Squat','Quadrizeps','Scheibenmaschine',5,['Gesäß'],'4360',[AF]],
+  ['beinstrecker','HN Beinstrecker','Quadrizeps','Maschine',5,[],'3001',[AB]],
+  ['beinbeuger_liegend','HN Beinbeuger liegend','Beinbeuger','Maschine',5,[],'3002',[AB]],
+  ['bootybooster','HN Bootybooster','Gesäß','Scheibenmaschine',5,['Beinbeuger'],'4352',[AF]],
+  ['reverse_hyper','HN Reverse Hyper','Gesäß','Maschine',5,['Unterer Rücken','Beinbeuger'],'80a00013',[AF]],
+  ['abduktor','HN Abduktionsmaschine','Gesäß','Maschine',5,[],'3028',[AB]],
+  ['adduktor','HN Adduktionsmaschine','Quadrizeps','Maschine',5,[],'3029',[AB]],
+  ['wade_steh','HN Wadenheben stehend','Waden','Maschine',5,[],'3018',[AB]],
+  ['wade_sitz_pk','HN Wadenheben sitzend','Waden','Scheibenmaschine',2.5,[],'4026',[AF]],
   ['beinbeuger_sitz','Beinbeuger sitzend','Beinbeuger','Maschine',5,[],'3003'],
   ['gluteus_kick','Gluteus-Kick-Maschine','Gesäß','Maschine',5,['Beinbeuger'],'3004'],
-  ['abduktor','Abduktorenmaschine','Gesäß','Maschine',5,[],'3028'],
-  ['adduktor','Adduktorenmaschine','Quadrizeps','Maschine',5,[],'3029'],
-  ['wade_steh','Wadenmaschine stehend','Waden','Maschine',5,[],'3018'],
   ['wade_sitz','Wadenpresse sitzend','Waden','Maschine',5,[],'3027'],
   ['wade_bp','Wadenheben an der Beinpresse','Waden','Maschine',5,[],'3030'],
   // Bauch
-  ['crunch_masch','Bauchmuskelmaschine','Bauch','Maschine',5,[],'3037'],
-  ['crunch_masch2','Crunchmaschine','Bauch','Maschine',5,[],'3124'],
+  ['crunch_masch','HN Bauchmaschine','Bauch','Maschine',5,[],'3037',[AB]],
+  ['crunch_masch2','HN Bauchpresse','Bauch','Maschine',5,[],'3124',[AB]],
+  ['bauch_liegend','HN Bauchmaschine liegend','Bauch','Maschine',5,[],'3034',[AB]],
+  ['bauchbank','HN Bauchbank','Bauch','Bank',2.5,[],'4027',[AU]],
   ['rotation','Rotationsmaschine','Bauch','Maschine',5,[],'3225'],
+  // Kabelzug-Stationen & Freihantel (mehrere Übungen möglich)
+  ['seilzug_explosiv','HN Seilzug Explosiv','Variabel','Kabelzug',2.5,[],'4125',[AB]],
+  ['turm4','HN 4-Stationen-Turm','Variabel','Kabelzug',2.5,[],'4032',[AF]],
+  ['vstation','HN V-Station Kabelturm','Variabel','Kabelzug',2.5,[],'4042',[AF]],
+  ['kabel_doppelt','HN Doppelter Kabelzug','Variabel','Kabelzug',2.5,[],'4034',[AF]],
+  ['multipresse','HN Multipresse','Variabel','Freihantel-Station',2.5,[],'4036',[AF]],
+  ['powerrack','HN Power-Rack (Matrix)','Variabel','Freihantel-Station',2.5,[],'',[AF]],
   // Cardio (Stufe + Minuten statt Gewicht + Wiederholungen)
-  ['cardio_rad','Fahrrad sitzend','Cardio','Cardiogerät',1,[],''],
-  ['cardio_liegerad','Fahrrad liegend','Cardio','Cardiogerät',1,[],''],
-  ['cardio_cross','Crosstrainer','Cardio','Cardiogerät',1,[],''],
-  ['cardio_lauf','Laufband','Cardio','Cardiogerät',1,[],''],
-  ['cardio_ruder','Rudergerät','Cardio','Cardiogerät',1,[],''],
-].map(([id,name,muscle,equip,inc,sec,g80]) => ({id,name,muscle,equip,inc,sec,g80,custom:false}));
+  ['cardio_rad','HN Fahrrad sitzend','Cardio','Cardiogerät',1,[],'',[AC]],
+  ['cardio_liegerad','HN Fahrrad liegend','Cardio','Cardiogerät',1,[],'',[AC]],
+  ['cardio_cross','HN Crosstrainer','Cardio','Cardiogerät',1,[],'',[AC]],
+  ['cardio_lauf','HN Laufband','Cardio','Cardiogerät',1,[],'',[AC]],
+  ['cardio_ruder','HN Rudergerät','Cardio','Cardiogerät',1,[],'',[AC]],
+].map(([id,name,muscle,equip,inc,sec,g80,area]) => ({id,name,muscle,equip,inc,sec,g80,area:area||[],hn:!!area,custom:false}));
+const areaLabel = ex => (ex.area || []).map(a => AREA_SHORT[a] || a).join(' / ');
 
 /* Alte Hantel-Übungen (Version 1) → Geräte-Ersatz in bestehenden Plänen */
 const LEGACY_MAP = {
@@ -324,7 +354,47 @@ const G80_IMG = {
   '3124':['2026/04/3124_Crunchmaschine_NC_overview.webp','2026/04/3124_Crunchmaschine_NC_front.webp','2026/04/3124_Crunchmaschine_NC_side.webp'],
   '3047':['2025/07/3047_iso_lat_NC-768x480.webp','2026/03/gym80_3047_iso_lat_NC_front.webp','2026/03/gym80_3047_iso_lat_NC_side.webp'],
   '4325':['2025/07/4325_pure_kraft_seithebemaschine_dual_NC-768x480.webp','2026/03/gym80_4325_pure_kraft_shoulder_lateral_raise_dual_NC_front.webp','2026/03/gym80_4325_pure_kraft_shoulder_lateral_raise_dual_NC_side.webp'],
+  // Heilbronn-Geräte
+  '4119':['2025/07/4119_basic_45-grad_rueckenstrecker_NC-768x480.webp','2025/03/gym80_4119_rueckengeraet45_grad__overview_bigsplit.jpg','2025/03/gym80_4119_rueckengeraet45_grad__frontsplit.jpg'],
+  '4027':['2026/03/gym80_4027_basic_abdominal_bench_NC_overview.webp','2026/03/gym80_4027_basic_abdominal_bench_NC_front.webp','2026/03/gym80_4027_basic_abdominal_bench_NC_side.webp'],
+  '3096':['2025/07/3096_neckpress_NC-768x480.webp','2026/03/gym80_3096_neck_press_NC_side.webp','2026/03/gym80_3096_neck_press_NC_front.webp'],
+  '4125':['2025/07/4125_seitzug_explosiv_NC-768x480.webp','2026/03/gym80_4125_pulley_explosive_NC_side.webp','2026/03/gym80_4125_pulley_explosive_NC_front-.webp'],
+  '4032':['2025/07/4032_bandzug_stationenturm_NC-768x480.webp','2026/03/gym80_4032_4-station_tower_NC_front.webp','2026/03/gym80_4032_4-station_tower_NC_side.webp'],
+  '4042':['2026/03/gym80_4042_adjustable_v-station_NC_overview.webp','2026/03/gym80_4042_adjustable_v-station_NC_side-1.webp','2026/03/gym80_4042_adjustable_v-station_NC_front-1.webp'],
+  '4034':['2026/03/gym80_4034_dual_adjustable_pulley_NC_overview.webp','2026/03/gym80_4034_dual_adjustable_pulley_NC_side-1.webp','2026/03/gym80_4034_dual_adjustable_pulley_NC_front-1.webp'],
+  '4036':['2026/03/gym80_4036_multipress_station_NC_overview.webp','2026/03/gym80_4036_multipress_station_NC_side-1.webp','2026/03/gym80_4036_multipress_station_NC_front-1.webp'],
+  '4352':['2025/07/4352_pure_kraft_booty_booster_NC-768x480.webp','2026/03/gym80_4352_pure_kraft_booty_booster_NC_side.webp','2026/03/gym80_4352_pure_kraft_booty_booster_NC_front-.webp'],
+  '4331':['2025/07/4331_pure_kraft_drueckbank_liegend_dual_NC-768x480.webp','2026/03/gym80_4331_pure_kraft_bench_press_dual_NC_side.webp','2026/03/gym80_4331_pure_kraft_bench_press_dual_NC_front.webp'],
+  '3097':['2026/03/gym80_3097_inner_chest_press_NC_overview.webp','2026/03/gym80_3097_inner_chest_press_NC_side.webp','2026/03/gym80_3097_inner_chest_press_NC_front.webp'],
+  '4097':['2025/07/4097_basic_press_bench_NC-768x480.webp','2025/03/gym80_4097_drueckband_breit_overview-big.jpg','2025/03/gym80_4097_drueckbank-breit_equipment.jpg'],
+  '4096':['2025/07/4096_basic_incline_bench_NC-768x480.webp','2025/03/gym80_4096_schraegbank_breit_overview-big.jpg','2025/03/gym80_4096_schraegbank-breit_equipment.jpg'],
+  '4107':['2025/07/4107_basic_decline_bench_NC__NC-768x480.webp'],
+  '4324':['2025/07/4324_pure_kraft_45_grad_pivot_beinpresse_NC-768x480.webp','2026/03/gym80_4324_pure_kraft_45_degrees_pivot_leg_press_NC_back.webp','2026/03/gym80_4324_pure_kraft_45_degrees_pivot_leg_press_NC_side.webp'],
+  '4360':['2025/07/4360_pure_kraft_belt_squat_NC-768x480.webp','2026/03/gym80_4360_pure_kraft_belt_squat_NC_back.webp','2026/03/gym80_4360_pure_kraft_belt_squat_NC_side.webp'],
+  '80a00013':['2025/07/80A00013_reverse_hyper_extension_machine_NC-768x480.webp','2026/03/gym80_80a00013_reverse_hyper_extension_machine_NC_front.webp','2026/03/gym80_80a00013_reverse_hyper_extension_machine_NC_side.webp'],
+  '4026':['2026/03/gym80_4026_pure_kraft_seated_calf_raise_NC_overview.webp','2026/03/gym80_4026_pure_kraft_seated_calf_raise_NC_front.webp','2026/03/gym80_4026_pure_kraft_seated_calf_raise_NC_side.webp'],
+  '4355':['2025/07/4355_pure_kraft_bizepsmaschine_dual_NC-768x480.webp','2026/03/gym80_4355_pure_kraft_biceps_curl_dual_NC_side.webp','2026/03/gym80_4355_pure_kraft_biceps_curl_dual_NC_front.webp'],
+  '3034':['2025/07/3034_klappsitz_liegend_NC-768x480.webp','2026/03/gym80_3034_lying_abdominal_machine_NC_front.webp','2026/03/gym80_3034_lying_abdominal_machine_NC_side.webp'],
 };
+/* Nicht-HN-Gerät → passendes Heilbronn-Gerät (für „Plan auf HN-Geräte umstellen“) */
+const HN_MAP = {
+  schraeg_masch:['schraeg_station','inner_chest','bank_dual'], brust_pk:['bank_dual','brustpresse'], latzug_dual:['latzug_masch','high_row'], iso_lat:['latzug_masch','high_row'],
+  klimmzug_masch:['latzug_masch','high_row'], rudern_dual:['low_row','rudern_masch','tbar'], ueberzug:['latzug_masch','high_row'],
+  schulterpresse:['nacken'], schulter_dual:['nacken'], seitheben_masch:['seitheben_pk'],
+  curl_masch:['curl_dual'], curl_horizontal:['curl_dual'], curl_pk:['curl_dual'],
+  trizeps_masch:['kabel_doppelt','vstation'], dips_masch:['bank_dual','kabel_doppelt'], trizeps_dip_pk:['kabel_doppelt','vstation'], trizeps_ueber_masch:['vstation','kabel_doppelt'],
+  beinbeuger_sitz:['beinbeuger_liegend'], gluteus_kick:['bootybooster','reverse_hyper'], wade_sitz:['wade_sitz_pk'], wade_bp:['wade_steh','wade_sitz_pk'], rotation:['bauch_liegend','crunch_masch2'],
+};
+function planToHN(p) {
+  let n = 0;
+  p.days.forEach(day => day.items.forEach(it => {
+    const ex = exById(it.exId); if (ex.hn || ex.custom) return;
+    const alts = HN_MAP[it.exId]; if (!alts) return;
+    it.exId = alts.find(a => !day.items.some(o => o.exId === a)) || alts[0]; n++;
+  }));
+  return n;
+}
+const planNonHN = p => p.days.reduce((a, d) => a + d.items.filter(i => { const e = exById(i.exId); return !e.hn && !e.custom; }).length, 0);
 const G80_BASE = 'https://gym80.de/wp-content/uploads/';
 const imgsFor = ex => ex.img ? [ex.img] : (G80_IMG[ex.g80] || []).map(p => G80_BASE + p);
 const allImgUrls = () => [...new Set(S.exercises.flatMap(imgsFor))];
@@ -334,20 +404,20 @@ const photoUrl = ex => 'https://www.google.com/search?tbm=isch&q=' + encodeURICo
 
 /* Vorlagen (nur Geräte): [exId, Sätze, minWdh, maxWdh, RIR, Pause(s)] */
 const TEMPLATES = {
-  ppl: { name:'Push / Pull / Beine', desc:'3–6× pro Woche · klassischer Split', days:[
-    ['Push',[['brustpresse',3,6,10,2,150],['schraeg_masch',3,8,12,2,120],['schulterpresse',3,8,12,2,120],['seitheben_masch',3,12,15,1,75],['trizeps_masch',3,10,15,1,75],['butterfly',2,12,15,1,75]]],
-    ['Pull',[['latzug_masch',3,8,12,2,120],['rudern_masch',3,8,12,2,120],['low_row',2,8,12,2,90],['reverse_fly',3,12,15,1,75],['curl_masch',3,8,12,1,75],['curl_horizontal',2,10,12,1,75]]],
-    ['Beine',[['hackenschmidt',3,6,10,2,180],['beinpresse',3,10,12,2,150],['beinbeuger_liegend',3,8,12,2,120],['beinbeuger_sitz',3,10,15,1,90],['beinstrecker',3,12,15,1,90],['wade_steh',4,10,15,1,60]]],
+  ppl: { name:'Push / Pull / Beine', desc:'3–6× pro Woche · klassischer Split · nur HN-Geräte', days:[
+    ['Push',[['brustpresse',3,6,10,2,150],['bank_dual',3,8,12,2,120],['nacken',3,8,12,2,120],['seitheben_pk',3,12,15,1,75],['inner_chest',3,10,15,1,75],['butterfly',2,12,15,1,75]]],
+    ['Pull',[['latzug_masch',3,8,12,2,120],['rudern_masch',3,8,12,2,120],['high_row',2,8,12,2,90],['reverse_fly',3,12,15,1,75],['curl_dual',3,8,12,1,75],['rueckenstrecker',2,10,15,1,75]]],
+    ['Beine',[['hackenschmidt',3,6,10,2,180],['beinpresse',3,10,12,2,150],['beinbeuger_liegend',3,8,12,2,120],['beinstrecker',3,12,15,1,90],['bootybooster',3,10,12,2,90],['wade_steh',4,10,15,1,60]]],
   ]},
-  ouk: { name:'Ober- / Unterkörper', desc:'4× pro Woche · A/B-Wechsel', days:[
-    ['Oberkörper A',[['brustpresse',3,6,10,2,150],['rudern_masch',3,8,12,2,120],['schulterpresse',3,8,12,2,120],['latzug_masch',3,8,12,2,120],['seitheben_masch',3,12,15,1,60],['curl_masch',2,8,12,1,75],['trizeps_masch',2,10,15,1,75]]],
+  ouk: { name:'Ober- / Unterkörper', desc:'4× pro Woche · A/B-Wechsel · nur HN-Geräte', days:[
+    ['Oberkörper A',[['brustpresse',3,6,10,2,150],['rudern_masch',3,8,12,2,120],['nacken',3,8,12,2,120],['latzug_masch',3,8,12,2,120],['seitheben_pk',3,12,15,1,60],['curl_dual',2,8,12,1,75]]],
     ['Unterkörper A',[['hackenschmidt',3,6,10,2,180],['beinbeuger_liegend',3,8,12,2,120],['beinstrecker',3,10,15,1,90],['adduktor',2,12,15,1,75],['wade_steh',3,10,15,1,60],['crunch_masch',3,10,15,1,60]]],
-    ['Oberkörper B',[['schraeg_masch',3,8,12,2,120],['latzug_dual',3,8,12,2,120],['butterfly',2,10,15,1,90],['low_row',3,8,12,2,120],['reverse_fly',3,12,15,1,60],['curl_horizontal',2,10,12,1,60],['trizeps_ueber_masch',2,10,15,1,60]]],
-    ['Unterkörper B',[['beinpresse',3,8,12,2,150],['gluteus_kick',3,10,12,2,90],['beinbeuger_sitz',3,10,15,1,90],['abduktor',2,12,15,1,75],['wade_sitz',3,12,15,1,60],['crunch_masch2',3,10,15,1,60]]],
+    ['Oberkörper B',[['bank_dual',3,8,12,2,120],['high_row',3,8,12,2,120],['butterfly',2,10,15,1,90],['low_row',3,8,12,2,120],['reverse_fly',3,12,15,1,60],['curl_dual',2,10,12,1,60]]],
+    ['Unterkörper B',[['pivot_bp',3,8,12,2,150],['bootybooster',3,10,12,2,90],['beinbeuger_liegend',3,10,15,1,90],['abduktor',2,12,15,1,75],['wade_sitz_pk',3,12,15,1,60],['crunch_masch2',3,10,15,1,60]]],
   ]},
-  gk: { name:'Ganzkörper', desc:'2–3× pro Woche · ideal für Einsteiger', days:[
-    ['Ganzkörper A',[['beinpresse',3,8,12,2,150],['brustpresse',3,8,12,2,120],['latzug_masch',3,8,12,2,120],['beinbeuger_sitz',2,10,15,1,90],['schulterpresse',2,8,12,2,90],['crunch_masch',2,10,15,1,60]]],
-    ['Ganzkörper B',[['hackenschmidt',3,6,10,2,150],['rudern_masch',3,8,12,2,120],['schraeg_masch',3,8,12,2,120],['beinstrecker',2,12,15,1,90],['seitheben_masch',2,12,15,1,60],['curl_masch',2,10,12,1,60],['trizeps_masch',2,10,12,1,60]]],
+  gk: { name:'Ganzkörper', desc:'2–3× pro Woche · ideal für Einsteiger · nur HN-Geräte', days:[
+    ['Ganzkörper A',[['beinpresse',3,8,12,2,150],['brustpresse',3,8,12,2,120],['latzug_masch',3,8,12,2,120],['beinbeuger_liegend',2,10,15,1,90],['nacken',2,8,12,2,90],['crunch_masch',2,10,15,1,60]]],
+    ['Ganzkörper B',[['hackenschmidt',3,6,10,2,150],['rudern_masch',3,8,12,2,120],['bank_dual',3,8,12,2,120],['beinstrecker',2,12,15,1,90],['seitheben_pk',2,12,15,1,60],['curl_dual',2,10,12,1,60]]],
   ]},
 };
 
@@ -382,7 +452,7 @@ function migrate(d) {
   // Standardübungen aktualisieren/ergänzen (eigene Steigerung bleibt erhalten)
   DEFAULT_EX.forEach(def => {
     const cur = d.exercises.find(e => e.id === def.id);
-    if (cur) Object.assign(cur, { name: def.name, muscle: def.muscle, equip: def.equip, sec: def.sec, g80: def.g80 });
+    if (cur) Object.assign(cur, { name: def.name, muscle: def.muscle, equip: def.equip, sec: def.sec, g80: def.g80, area: def.area, hn: def.hn });
     else d.exercises.push({...def});
   });
   d.settings = Object.assign({ rest: 120, sound: true }, d.settings);
@@ -446,7 +516,7 @@ function bestE1rm(exId, excludeId) {
 }
 
 /* ============ UI state ============ */
-const ui = { tab: 'train', planId: null, dayId: null, exFilter: 'Alle', exSearch: '', statEx: null };
+const ui = { tab: 'train', planId: null, dayId: null, exFilter: 'Alle', exArea: 'Alle', pickArea: 'HN', exSearch: '', statEx: null };
 const TABS = [
   ['train','Training','<path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>'],
   ['plans','Pläne','<rect x="4" y="3.5" width="16" height="17" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><path d="M8 8.5h8M8 12h8M8 15.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
@@ -531,6 +601,7 @@ function vPlanEdit() {
   let h = `<div class="top"><button class="back" data-a="planBack">‹ Pläne</button><button class="iconbtn" data-a="planMenu">⋯</button></div>
     <input value="${esc(p.name)}" data-f="planName" style="font-size:24px;font-weight:800;background:transparent;border:0;padding:0 0 4px">
     <div class="row" style="margin:8px 0 18px;gap:8px">${p.id === S.activePlanId ? '<span class="pill ok">Aktiver Plan</span>' : `<button class="btn sm" data-a="activate" data-p="${p.id}">Als aktiv setzen</button>`}</div>
+    ${planNonHN(p) ? `<div class="card"><div class="muted small" style="margin-bottom:8px">${planNonHN(p)} Übung(en) nutzen Geräte, die es in Heilbronn nicht gibt.</div><button class="btn sm" data-a="planToHN">📍 Auf HN-Geräte umstellen</button></div>` : ''}
     <h2>Trainingstage</h2>`;
   p.days.forEach((d, i) => {
     h += `<div class="card"><div class="row"><div class="grow" data-a="editDay" data-d="${d.id}"><h3>${esc(d.name)}</h3><div class="muted small">${dayMeta(d)}</div></div>
@@ -547,7 +618,7 @@ function vDayEdit() {
     <div class="muted small" style="margin-bottom:14px">${dayMeta(d)}</div>`;
   d.items.forEach((it, i) => {
     const ex = exById(it.exId);
-    h += `<div class="pitem"><div class="row"><div class="grow"><b>${esc(ex.name)}</b><div class="muted small">${esc(ex.muscle)} · ${esc(ex.equip)}</div></div>
+    h += `<div class="pitem"><div class="row"><div class="grow"><b>${esc(ex.name)}</b><div class="muted small">${exSub(ex)}</div></div>
       ${photoBtn(ex)}
       <button class="iconbtn" data-a="itemUp" data-i="${i}">↑</button><button class="iconbtn" data-a="itemDown" data-i="${i}">↓</button><button class="iconbtn" data-a="itemMenu" data-i="${i}">⋯</button></div>
       ${isCardio(ex) ? `<div class="pgrid" style="grid-template-columns:1fr 1fr">
@@ -581,17 +652,23 @@ function exHistory(exId) {
   }}));
   return out;
 }
+/* Filter nach Trainingsbereich: 'Alle' | 'HN' (nur Heilbronn) | einer der AREAS */
+const areaOk = (e, f) => !f || f === 'Alle' || (f === 'HN' ? !!e.hn : (e.area || []).includes(f));
+const areaChips = (cur, action) => `<div class="chips area">${[['Alle', 'Alle Studios'], ['HN', '📍 Nur HN'], ...AREAS.map(a => [a, AREA_SHORT[a]])]
+  .map(([k, l]) => `<button class="chip ${(cur || 'Alle') === k ? 'on' : ''}" data-a="${action}" data-k="${k}">${l}</button>`).join('')}</div>`;
+const exSub = e => `${esc(e.muscle)} · ${esc(e.equip)}${e.area && e.area.length ? ` · <span class="hnpill">${esc(areaLabel(e))}</span>` : ''}`;
 function vEx() {
   const q = ui.exSearch.toLowerCase();
-  const list = S.exercises.filter(e => (!e.legacy || exHistory(e.id).length) && (ui.exFilter === 'Alle' || e.muscle === ui.exFilter) && (!q || e.name.toLowerCase().includes(q)))
+  const list = S.exercises.filter(e => (!e.legacy || exHistory(e.id).length) && (ui.exFilter === 'Alle' || e.muscle === ui.exFilter) && areaOk(e, ui.exArea) && (!q || e.name.toLowerCase().includes(q)))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
   let h = `<div class="top"><h1>Übungen</h1><button class="btn sm" data-a="newEx">+ Eigene</button></div>
     <input type="search" placeholder="Suchen…" value="${esc(ui.exSearch)}" data-f="exSearch" style="margin-bottom:10px">
+    ${areaChips(ui.exArea, 'exArea')}
     <div class="chips">${['Alle', ...MUSCLES].map(m => `<button class="chip ${ui.exFilter === m ? 'on' : ''}" data-a="exFilter" data-k="${m}">${m}</button>`).join('')}</div>
     <div class="card list" style="padding:2px 14px" id="exlist">`;
   h += list.map(e => {
     const n = exHistory(e.id).length;
-    return `<div class="item" data-a="exDetail" data-x="${e.id}"><div class="grow"><div>${esc(e.name)}</div><div class="muted small">${esc(e.muscle)} · ${esc(e.equip)}${e.custom ? ' · eigene' : ''}</div></div>
+    return `<div class="item" data-a="exDetail" data-x="${e.id}"><div class="grow"><div>${esc(e.name)}</div><div class="muted small">${exSub(e)}${e.custom ? ' · eigene' : ''}</div></div>
       ${n ? `<span class="pill">${n}×</span>` : ''}<span class="chev">›</span></div>`;
   }).join('') || `<div class="empty">Keine Übung gefunden.</div>`;
   return h + '</div>';
@@ -890,15 +967,16 @@ async function downloadImgs(btn) {
 function pickExercise(cb, title = 'Übung wählen') {
   sheetCb = cb; ui.pickFilter = ui.pickFilter || 'Alle'; ui.pickQ = '';
   openSheet(`<h2 style="margin-top:6px">${title}</h2><input type="search" placeholder="Suchen…" data-f="pickQ" style="margin-bottom:10px">
-    <div class="chips" id="pickChips"></div><div class="list" id="pickList"></div>`);
+    <div id="pickArea"></div><div class="chips" id="pickChips"></div><div class="list" id="pickList"></div>`);
   renderPick();
 }
 function renderPick() {
   const q = (ui.pickQ || '').toLowerCase();
+  $('#pickArea').innerHTML = areaChips(ui.pickArea, 'pickArea');
   $('#pickChips').innerHTML = ['Alle', ...MUSCLES].map(m => `<button class="chip ${ui.pickFilter === m ? 'on' : ''}" data-a="pickFilter" data-k="${m}">${m}</button>`).join('');
-  $('#pickList').innerHTML = S.exercises.filter(e => !e.legacy && (ui.pickFilter === 'Alle' || e.muscle === ui.pickFilter) && (!q || e.name.toLowerCase().includes(q)))
+  $('#pickList').innerHTML = S.exercises.filter(e => !e.legacy && (ui.pickFilter === 'Alle' || e.muscle === ui.pickFilter) && areaOk(e, ui.pickArea) && (!q || e.name.toLowerCase().includes(q)))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'))
-    .map(e => `<div class="item" data-a="pickEx" data-x="${e.id}"><div class="grow"><div>${esc(e.name)}</div><div class="muted small">${esc(e.muscle)} · ${esc(e.equip)}</div></div><span style="color:var(--acc);font-size:22px">+</span></div>`).join('')
+    .map(e => `<div class="item" data-a="pickEx" data-x="${e.id}"><div class="grow"><div>${esc(e.name)}</div><div class="muted small">${exSub(e)}</div></div><span style="color:var(--acc);font-size:22px">+</span></div>`).join('')
     || `<div class="empty">Nichts gefunden.</div>`;
 }
 
@@ -963,6 +1041,9 @@ const A = {
     ]);
   },
   pickFilter: el => { ui.pickFilter = el.dataset.k; renderPick(); },
+  pickArea: el => { ui.pickArea = el.dataset.k; renderPick(); },
+  exArea: el => { ui.exArea = el.dataset.k; render(); },
+  planToHN: () => { const n = planToHN(curPlan()); save(); render(); toast(n ? `${n} Übungen auf HN-Geräte umgestellt` : 'Keine passenden HN-Geräte gefunden'); },
   pickEx: el => { const cb = sheetCb; if (typeof cb === 'function') cb(el.dataset.x); },
 
   // Pläne
@@ -982,6 +1063,7 @@ const A = {
   planMenu: () => {
     const p = curPlan();
     menu([
+      ['Auf HN-Geräte umstellen', () => A.planToHN()],
       ['Plan duplizieren', () => { const c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.name += ' (Kopie)'; c.days.forEach(d => { d.id = uid(); d.items.forEach(i => i.id = uid()); }); S.plans.push(c); ui.planId = c.id; save(); render(); }],
       ['Plan löschen', () => { if (!confirm(`„${p.name}“ löschen? Bisherige Trainings bleiben erhalten.`)) return; S.plans = S.plans.filter(x => x.id !== p.id); if (S.activePlanId === p.id) S.activePlanId = S.plans[0] ? S.plans[0].id : null; ui.planId = null; save(); render(); }, true],
     ]);
