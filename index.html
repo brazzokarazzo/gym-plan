@@ -8,6 +8,12 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Gym Plan">
 <meta name="theme-color" content="#0b0b0f">
+<script>/* Theme früh setzen: kein Aufblitzen, passende iOS-Statusleiste */
+try { const t = (JSON.parse(localStorage.getItem('gymplan-v1') || '{}').settings || {}).theme || 'auto';
+  const light = t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+  document.documentElement.dataset.theme = light ? 'light' : 'dark';
+  if (light) { document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content = 'default'; document.querySelector('meta[name="theme-color"]').content = '#f2f2f7'; }
+} catch (e) {}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" href="icon-512.png">
@@ -20,6 +26,14 @@
   --ok:#34c759; --okbg:rgba(52,199,89,.15); --warn:#ffcc00; --bad:#ff453a;
   --r:16px;
   --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+  --bar:rgba(18,18,24,.92); color-scheme:dark;
+}
+:root[data-theme="light"]{
+  --bg:#f2f2f7; --bg2:#ffffff; --bg3:#e9e9ef; --line:#d6d6de;
+  --tx:#111116; --tx2:#5c5c6b; --tx3:#8e8e9c;
+  --acc:#e8551f; --acc2:#ff6a3d; --accbg:rgba(232,85,31,.12);
+  --ok:#1f9d44; --okbg:rgba(31,157,68,.13); --warn:#b38600; --bad:#d70015;
+  --bar:rgba(255,255,255,.92); color-scheme:light;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);
@@ -41,7 +55,7 @@ h3{font-size:17px;margin:0;font-weight:650}
 .back{color:var(--acc);font-weight:600;font-size:17px;display:flex;align-items:center;gap:4px}
 
 /* tab bar */
-.tabbar{position:fixed;left:0;right:0;bottom:0;display:flex;background:rgba(18,18,24,.92);
+.tabbar{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--bar);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-top:1px solid var(--line);
   padding:6px 4px calc(var(--sb) + 6px);z-index:10}
 .tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10.5px;color:var(--tx3);padding:4px 0}
@@ -525,7 +539,17 @@ const TABS = [
   ['more','Mehr','<circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/>'],
 ];
 
+const darkMQ = window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const t = S.settings.theme || 'auto';
+  const mode = t === 'auto' ? (darkMQ.matches ? 'dark' : 'light') : t;
+  document.documentElement.dataset.theme = mode;
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.content = mode === 'light' ? '#f2f2f7' : '#0b0b0f';
+}
+darkMQ.addEventListener && darkMQ.addEventListener('change', () => applyTheme());
 function render() {
+  applyTheme();
   $('#tabbar').innerHTML = TABS.map(([k, l, svg]) =>
     `<button class="${ui.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}"><svg viewBox="0 0 24 24">${svg}</svg>${l}</button>`).join('');
   const v = $('#view');
@@ -683,15 +707,15 @@ function chartSVG(points, label) {
   const area = d + `L${x(points.length - 1)},${H - 22}L${x(0)},${H - 22}Z`;
   return `<svg class="chart" viewBox="0 0 ${W} ${H}">
     <defs><linearGradient id="g" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ff6a3d" stop-opacity=".35"/><stop offset="1" stop-color="#ff6a3d" stop-opacity="0"/></linearGradient></defs>
-    <line x1="${P}" x2="${W-10}" y1="${y(max)}" y2="${y(max)}" stroke="#2a2a36" stroke-dasharray="3 4"/>
-    <line x1="${P}" x2="${W-10}" y1="${y(min)}" y2="${y(min)}" stroke="#2a2a36" stroke-dasharray="3 4"/>
-    <text x="2" y="${y(max)+4}" fill="#a0a0b2" font-size="10">${Math.round(max)}</text>
-    <text x="2" y="${y(min)+4}" fill="#a0a0b2" font-size="10">${Math.round(min)}</text>
+    <line x1="${P}" x2="${W-10}" y1="${y(max)}" y2="${y(max)}" style="stroke:var(--line)" stroke-dasharray="3 4"/>
+    <line x1="${P}" x2="${W-10}" y1="${y(min)}" y2="${y(min)}" style="stroke:var(--line)" stroke-dasharray="3 4"/>
+    <text x="2" y="${y(max)+4}" style="fill:var(--tx2)" font-size="10">${Math.round(max)}</text>
+    <text x="2" y="${y(min)+4}" style="fill:var(--tx2)" font-size="10">${Math.round(min)}</text>
     <path d="${area}" fill="url(#g)"/><path d="${d}" fill="none" stroke="#ff6a3d" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
     ${points.map((p, i) => `<circle cx="${x(i)}" cy="${y(p.y)}" r="3" fill="#ff6a3d"/>`).join('')}
-    <text x="${P}" y="${H-5}" fill="#6b6b7e" font-size="10">${new Date(points[0].t).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</text>
-    <text x="${W-10}" y="${H-5}" fill="#6b6b7e" font-size="10" text-anchor="end">${new Date(points[points.length-1].t).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</text>
-    <text x="${W-10}" y="12" fill="#a0a0b2" font-size="10" text-anchor="end">${label}</text></svg>`;
+    <text x="${P}" y="${H-5}" style="fill:var(--tx3)" font-size="10">${new Date(points[0].t).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</text>
+    <text x="${W-10}" y="${H-5}" style="fill:var(--tx3)" font-size="10" text-anchor="end">${new Date(points[points.length-1].t).toLocaleDateString('de-DE',{day:'2-digit',month:'2-digit'})}</text>
+    <text x="${W-10}" y="12" style="fill:var(--tx2)" font-size="10" text-anchor="end">${label}</text></svg>`;
 }
 function exDetailHTML(id) {
   const e = exById(id), hist = exHistory(id), cardio = isCardio(e);
@@ -772,6 +796,7 @@ function vMore() {
   <div class="card"><h3 style="margin-bottom:10px">Einstellungen</h3>
     <div class="field"><label>Standard-Pause für freie Übungen (Sekunden)</label><input inputmode="numeric" data-f="setRest" value="${S.settings.rest}"></div>
     <div class="row between"><span>Ton am Ende der Pause</span><button class="chip ${S.settings.sound ? 'on' : ''}" data-a="toggleSound">${S.settings.sound ? 'An' : 'Aus'}</button></div>
+    <div class="row between" style="margin-top:12px"><span>Darstellung</span><span>${[['light', '☀️ Tag'], ['dark', '🌙 Nacht'], ['auto', 'Auto']].map(([k, l]) => `<button class="chip ${(S.settings.theme || 'auto') === k ? 'on' : ''}" data-a="setTheme" data-k="${k}">${l}</button>`).join(' ')}</span></div>
   </div>
   <div class="card"><h3 style="margin-bottom:4px">Datensicherung</h3>
     <div class="muted small" style="margin-bottom:12px">Alle Daten liegen nur auf diesem Gerät (${(bytes / 1024).toFixed(1)} KB). Exportiere regelmäßig ein Backup, z.&nbsp;B. in die Dateien-App.</div>
@@ -1041,6 +1066,7 @@ const A = {
     ]);
   },
   pickFilter: el => { ui.pickFilter = el.dataset.k; renderPick(); },
+  setTheme: el => { S.settings.theme = el.dataset.k; save(); render(); },
   pickArea: el => { ui.pickArea = el.dataset.k; renderPick(); },
   exArea: el => { ui.exArea = el.dataset.k; render(); },
   planToHN: () => { const n = planToHN(curPlan()); save(); render(); toast(n ? `${n} Übungen auf HN-Geräte umgestellt` : 'Keine passenden HN-Geräte gefunden'); },
