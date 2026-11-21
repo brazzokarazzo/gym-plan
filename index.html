@@ -1156,7 +1156,7 @@ const A = {
   delWo: el => { if (!confirm('Training endgültig löschen?')) return; S.workouts = S.workouts.filter(w => w.id !== el.dataset.w); save(); closeSheet(); render(); },
 
   // Mehr
-  utilRefresh: () => fetchUtil(true),
+  utilRefresh: () => { fetchUtil(true); syncRepo(true); },
   utilDay: el => { if (!el.dataset.k) return; ui.utilDay = el.dataset.k; render(); },
   toggleSound: () => { S.settings.sound = !S.settings.sound; save(); render(); },
   export: async () => {
@@ -1253,6 +1253,34 @@ async function fetchUtil(force) {
 function utilTick() {
   const h = new Date().getHours();
   if (document.visibilityState === 'visible' && h >= U_H0 && h < U_H1) fetchUtil();
+  syncRepo();
+}
+
+/* Lückenlose Werte aus dem GitHub-Repo (Branch "data", per GitHub Action alle 10 Min. gesammelt) */
+const REPO_DATA = 'https://raw.githubusercontent.com/brazzokarazzo/gym-plan/data/';
+let uSyncAt = 0;
+async function syncRepo(force) {
+  if (!force && Date.now() - uSyncAt < 15 * 60e3) return;
+  uSyncAt = Date.now();
+  const now = new Date(), months = [];
+  for (let i = 0; i < (U.synced ? 2 : 13); i++) { const d = new Date(now.getFullYear(), now.getMonth() - i, 1); months.push(dKey(d).slice(0, 6)); }
+  let changed = false, ok = false;
+  await Promise.all(months.map(async ym => {
+    try {
+      const r = await fetch(`${REPO_DATA}util-${ym}.json?t=${Math.floor(Date.now() / 6e5)}`, { cache: 'no-store' });
+      if (r.status === 404) { ok = true; return; }
+      if (!r.ok) return;
+      const remote = await r.json(); ok = true;
+      Object.entries(remote).forEach(([k, s]) => {
+        if (typeof s !== 'string' || s.length !== U_LEN) return;
+        const loc = U.d[k] || '.'.repeat(U_LEN);
+        const merged = [...s].map((c, i) => c !== '.' ? c : loc[i]).join('');
+        if (merged !== U.d[k]) { U.d[k] = merged; changed = true; }
+      });
+    } catch (e) {}
+  }));
+  if (ok && !U.synced) { U.synced = 1; changed = true; }
+  if (changed) { uSave(); if (ui.tab === 'util' && !document.querySelector('#sheet.on') && !(document.activeElement && document.activeElement.matches('input'))) render(); }
 }
 
 /* Werte eines Tages: Stunden (API-Wert, sonst Mittel der 10-min-Werte) und 10-min-Reihe */
@@ -1322,7 +1350,7 @@ function vUtil() {
   }
   const bytes = (localStorage.getItem(UKEY) || '').length;
   h += `<div class="muted small" style="text-align:center;margin-top:6px">${keys.length} Tag(e) gespeichert · ${(bytes / 1024).toFixed(1)} KB<br>
-    Abruf alle 10 Min. (6–22 Uhr), solange die App geöffnet ist. Die Stundenwerte des Tages kommen bei jedem Öffnen komplett mit.</div>`;
+    Werte werden automatisch alle 10 Min. (6–22 Uhr) über GitHub gesammelt und beim Öffnen nachgeladen.</div>`;
   return h;
 }
 
@@ -1331,9 +1359,9 @@ S = load(); save();
 if (S.current) ui.woOpen = true;
 render();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
-fetchUtil(true);
+fetchUtil(true); syncRepo(true);
 setInterval(utilTick, 60e3);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchUtil(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { fetchUtil(); syncRepo(); } });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
