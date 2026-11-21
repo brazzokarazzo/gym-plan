@@ -155,6 +155,8 @@ h3{font-size:17px;margin:0;font-weight:650}
   display:flex;flex-direction:column;transform:translateY(105%);transition:transform .25s ease;border-top:1px solid var(--line)}
 #sheet.on{transform:none}
 #sheet .grab{width:38px;height:5px;border-radius:5px;background:var(--line);margin:8px auto 2px}
+#sheet .shead{position:relative;flex:none;min-height:30px}
+#sheet .sclose{position:absolute;top:8px;right:12px;width:32px;height:32px;border-radius:50%;background:var(--bg3);color:var(--tx2);font-size:15px;line-height:32px;text-align:center;z-index:1}
 #sheetc{overflow-y:auto;padding:8px 16px calc(var(--sb) + 18px);-webkit-overflow-scrolling:touch}
 .menu button{display:block;width:100%;text-align:left;padding:14px 4px;border-bottom:1px solid var(--line);font-size:17px}
 .menu button:last-child{border-bottom:0}
@@ -195,7 +197,7 @@ a.iconbtn{text-decoration:none}
 </div>
 <div id="woRoot"></div>
 <div id="sheetbg" data-a="closeSheet"></div>
-<div id="sheet"><div class="grab"></div><div id="sheetc"></div></div>
+<div id="sheet"><div class="shead"><div class="grab"></div><button class="sclose" data-a="closeSheet" aria-label="Schließen">✕</button></div><div id="sheetc"></div></div>
 <div id="toast"></div>
 <div id="photo"><div class="ph"><b id="phTitle"></b><button class="close" data-a="closePhoto" aria-label="Schließen">✕</button></div>
   <div class="slides" id="phSlides"></div><div class="dots" id="phDots"></div><div class="pf" id="phFoot"></div></div>
@@ -805,6 +807,7 @@ function woDetailHTML(id) {
   const vol = w.entries.reduce((b, e) => b + e.sets.reduce((c, s) => c + (s.w || 0) * (s.r || 0), 0), 0);
   return `<h2 style="margin-top:6px">${esc(w.name)}</h2><div class="muted small" style="margin-bottom:12px">${fmtDate(w.start)} · ${new Date(w.start).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} · ${fmtDur((w.end||w.start) - w.start)} · ${Math.round(vol)} kg Volumen</div>
     ${w.entries.map(e => { const c = isCardio(exById(e.exId)); return `<div class="card"><b>${c ? '🚴 ' : ''}${esc(exById(e.exId).name)}</b><div class="small muted" style="margin-top:4px">${e.sets.map((s, i) => c ? `${i + 1}. ${fmtCardio(s)}` : `${i + 1}. ${fmtN(s.w)} kg × ${s.r}${s.rir != null ? ' @ RIR ' + s.rir : ''}`).join('<br>')}</div></div>`; }).join('')}
+    <button class="btn sec block" data-a="closeSheet" style="margin-bottom:10px">Schließen</button>
     <button class="btn danger block" data-a="delWo" data-w="${w.id}">Training löschen</button>`;
 }
 
