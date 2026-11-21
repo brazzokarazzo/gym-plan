@@ -90,6 +90,16 @@ h3{font-size:17px;margin:0;font-weight:650}
 .hero{background:linear-gradient(135deg,#ff6a3d,#c2185b);border:0;color:#fff}
 .hero .muted{color:rgba(255,255,255,.8)}
 .hero .btn{background:#fff;color:#c2185b}
+.ubars{display:flex;gap:3px;align-items:flex-end;margin-top:14px}
+.ucol{flex:1;display:flex;flex-direction:column;align-items:center;min-width:0}
+.uval{font-size:9px;color:var(--tx3);height:12px}
+.utrack{position:relative;width:100%;height:130px;background:var(--bg3);border-radius:5px;overflow:hidden}
+.ubar{position:absolute;left:0;right:0;bottom:0;border-radius:5px 5px 0 0;opacity:.85}
+.ucol.cur .utrack{outline:2px solid var(--acc);outline-offset:1px}
+.ucol.cur .ubar{opacity:1}
+.uprev{position:absolute;left:-1px;right:-1px;height:2px;background:var(--tx);opacity:.7}
+.uleg{display:inline-block;width:12px;height:2px;background:var(--tx);opacity:.7;vertical-align:middle}
+.ulbl{font-size:10px;color:var(--tx3);height:14px;margin-top:3px}
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}
 .stat{background:var(--bg2);border:1px solid var(--line);border-radius:14px;padding:12px}
 .stat b{display:block;font-size:22px;font-weight:800}
@@ -536,6 +546,7 @@ const TABS = [
   ['plans','Pläne','<rect x="4" y="3.5" width="16" height="17" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><path d="M8 8.5h8M8 12h8M8 15.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
   ['ex','Übungen','<circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
   ['hist','Verlauf','<path d="M4 19V11M10 19V5M16 19v-6M22 19H2" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>'],
+  ['util','Studio','<path d="M4 17a8 8 0 1 1 16 0" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M12 17l4-5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="17" r="1.6" fill="currentColor"/>'],
   ['more','Mehr','<circle cx="5" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="19" cy="12" r="2" fill="currentColor"/>'],
 ];
 
@@ -553,7 +564,7 @@ function render() {
   $('#tabbar').innerHTML = TABS.map(([k, l, svg]) =>
     `<button class="${ui.tab === k ? 'on' : ''}" data-a="tab" data-k="${k}"><svg viewBox="0 0 24 24">${svg}</svg>${l}</button>`).join('');
   const v = $('#view');
-  const views = { train: vTrain, plans: vPlans, ex: vEx, hist: vHist, more: vMore };
+  const views = { train: vTrain, plans: vPlans, ex: vEx, hist: vHist, util: vUtil, more: vMore };
   v.innerHTML = views[ui.tab]();
   renderWorkout();
   if (ui.tab === 'more') updateImgStatus();
@@ -1145,10 +1156,12 @@ const A = {
   delWo: el => { if (!confirm('Training endgültig löschen?')) return; S.workouts = S.workouts.filter(w => w.id !== el.dataset.w); save(); closeSheet(); render(); },
 
   // Mehr
+  utilRefresh: () => fetchUtil(true),
+  utilDay: el => { if (!el.dataset.k) return; ui.utilDay = el.dataset.k; render(); },
   toggleSound: () => { S.settings.sound = !S.settings.sound; save(); render(); },
   export: async () => {
     const name = `gymplan-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    const blob = new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(Object.assign({}, S, { util: U }), null, 1)], { type: 'application/json' });
     try {
       const file = new File([blob], name, { type: 'application/json' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Gym Plan Backup' }); return; }
@@ -1178,11 +1191,14 @@ document.addEventListener('input', ev => {
 document.addEventListener('change', ev => {
   const el = ev.target;
   if (el.dataset.f === 'statEx') { ui.statEx = el.value; render(); }
+  if (el.dataset.f === 'utilDate' && el.value) { ui.utilDay = el.value.replace(/-/g, ''); el.blur(); render(); }
   if (el.id === 'importFile' && el.files[0]) {
     const r = new FileReader();
     r.onload = () => {
       try { const d = JSON.parse(r.result); if (!d.version || !Array.isArray(d.workouts)) throw 0;
         if (!confirm(`Backup mit ${d.workouts.length} Trainings und ${d.plans.length} Plänen laden? Aktuelle Daten werden ersetzt.`)) return;
+        if (d.util && d.util.d) { Object.keys(d.util.d).forEach(k => { if (!U.d[k]) U.d[k] = d.util.d[k]; }); uSave(); }
+        delete d.util;
         localStorage.setItem(KEY, JSON.stringify(d)); S = load(); render(); toast('Backup importiert');
       } catch (e) { toast('Ungültige Backup-Datei'); }
     };
@@ -1195,11 +1211,129 @@ document.addEventListener('keydown', ev => {
   ev.preventDefault(); const ins = [...document.querySelectorAll('#wo input')]; const n = ins[ins.indexOf(ev.target) + 1]; if (n) n.focus(); else ev.target.blur();
 });
 
+/* ============ Studio-Auslastung ============ */
+/* Speicherformat (eigener Key, platzsparend): { v:1, d: { "YYYYMMDD": "<16 Zeichen Stunden 6–21 Uhr><96 Zeichen 10-min-Werte 6:00–21:50>" } }
+   Ein Zeichen pro Wert: String.fromCharCode(48 + Prozent) → '0' = 0 %, 'd' = 52 % …; '.' = kein Wert. Ca. 115 Byte pro Tag (~40 KB pro Jahr). */
+const UTIL_URL = 'https://rsg-group.api.magicline.com/connect/v1/studio/6859406990/utilization';
+const UKEY = 'gymplan-util', U_H0 = 6, U_H1 = 22, U_NH = U_H1 - U_H0, U_NS = U_NH * 6, U_LEN = U_NH + U_NS;
+let U = (() => { try { const d = JSON.parse(localStorage.getItem(UKEY)); if (d && d.d) return d; } catch (e) {} return { v: 1, d: {} }; })();
+const uSave = () => { try { localStorage.setItem(UKEY, JSON.stringify(U)); } catch (e) { toast('⚠️ Auslastung konnte nicht gespeichert werden'); } };
+const uEnc = p => String.fromCharCode(48 + Math.max(0, Math.min(100, Math.round(p))));
+const uDec = c => c === '.' || c == null ? null : c.charCodeAt(0) - 48;
+const dKey = dt => `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}`;
+const kDate = k => new Date(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6, 8));
+const kShift = (k, days) => { const d = kDate(k); d.setDate(d.getDate() + days); return dKey(d); };
+const kIso = k => `${k.slice(0, 4)}-${k.slice(4, 6)}-${k.slice(6, 8)}`;
+let uLast = 0, uLive = null, uErr = '';
+
+async function fetchUtil(force) {
+  if (!force && Date.now() - uLast < 9.5 * 60e3) return;
+  uLast = Date.now();
+  try {
+    const r = await fetch(UTIL_URL, { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json(), now = new Date(), k = dKey(now);
+    const rec = (U.d[k] || '.'.repeat(U_LEN)).split('');
+    const items = j.items || []; const ci = items.findIndex(i => i.isCurrent);
+    items.forEach((it, i) => {
+      const h = parseInt(it.startTime); if (h < U_H0 || h >= U_H1) return;
+      if (ci >= 0 && i > ci) return;                 // Zukunft = noch keine echten Werte
+      rec[h - U_H0] = uEnc(it.percentage);
+    });
+    const cur = items[ci];
+    if (cur) {
+      uLive = { p: cur.percentage, level: cur.level, t: now };
+      const h = now.getHours();
+      if (h >= U_H0 && h < U_H1) rec[U_NH + (h - U_H0) * 6 + Math.floor(now.getMinutes() / 10)] = uEnc(cur.percentage);
+    }
+    if (rec.some(c => c !== '.')) { U.d[k] = rec.join(''); uSave(); }
+    uErr = '';
+  } catch (e) { uErr = 'Auslastung nicht abrufbar (offline?)'; }
+  if (ui.tab === 'util' && !document.querySelector('#sheet.on') && !(document.activeElement && document.activeElement.matches('input'))) render();
+}
+function utilTick() {
+  const h = new Date().getHours();
+  if (document.visibilityState === 'visible' && h >= U_H0 && h < U_H1) fetchUtil();
+}
+
+/* Werte eines Tages: Stunden (API-Wert, sonst Mittel der 10-min-Werte) und 10-min-Reihe */
+function uDay(k) {
+  const s = U.d[k]; if (!s) return null;
+  const slots = [...s.slice(U_NH)].map(uDec);
+  const hours = [...s.slice(0, U_NH)].map((c, i) => {
+    const v = uDec(c); if (v != null) return v;
+    const xs = slots.slice(i * 6, i * 6 + 6).filter(x => x != null);
+    return xs.length ? Math.round(xs.reduce((a, b) => a + b, 0) / xs.length) : null;
+  });
+  return { hours, slots };
+}
+const uAvg = a => { const xs = (a || []).filter(x => x != null); return xs.length ? Math.round(xs.reduce((x, y) => x + y, 0) / xs.length) : null; };
+const uColor = p => p < 35 ? 'var(--ok)' : p < 65 ? 'var(--warn)' : 'var(--bad)';
+const uKeys = () => Object.keys(U.d).sort();
+
+function vUtil() {
+  const today = dKey(new Date());
+  const k = ui.utilDay || today, keys = uKeys();
+  const day = uDay(k), prevK = kShift(k, -7), prev = uDay(prevK);
+  const dLabel = kDate(k).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+  const pIdx = keys.filter(x => x < k).pop(), nIdx = keys.find(x => x > k);
+  const curH = k === today ? new Date().getHours() - U_H0 : -1;
+  let h = `<div class="top"><h1>Studio</h1><button class="chip" data-a="utilRefresh">↻ Aktualisieren</button></div>`;
+  if (k === today && uLive) {
+    const lastWeekNow = prev && curH >= 0 && curH < U_NH ? prev.hours[curH] : null;
+    h += `<div class="card"><div class="row between"><div><div class="muted small">Auslastung jetzt</div>
+      <div style="font-size:34px;font-weight:800;color:${uColor(uLive.p)}">${uLive.p} %</div></div>
+      <div style="text-align:right" class="muted small">Stand ${uLive.t.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}${lastWeekNow != null ? `<br>Vorwoche um diese Zeit: <b>${lastWeekNow} %</b>` : ''}</div></div></div>`;
+  }
+  if (uErr) h += `<div class="card muted small">⚠️ ${uErr}</div>`;
+  h += `<div class="card"><div class="row" style="gap:8px">
+      <button class="iconbtn" data-a="utilDay" data-k="${pIdx || ''}" ${pIdx ? '' : 'disabled style="opacity:.3"'}>‹</button>
+      <input type="date" data-f="utilDate" value="${kIso(k)}" min="${keys[0] ? kIso(keys[0]) : kIso(today)}" max="${kIso(today)}" style="flex:1">
+      <button class="iconbtn" data-a="utilDay" data-k="${nIdx || ''}" ${nIdx ? '' : 'disabled style="opacity:.3"'}>›</button></div>
+    <div class="muted small" style="margin-top:8px;text-transform:capitalize">${dLabel}</div>`;
+  if (!day) {
+    h += `<div class="muted" style="padding:24px 0;text-align:center">Für diesen Tag ist keine Auslastung gespeichert.</div></div>`;
+  } else {
+    const avg = uAvg(day.hours), pAvg = prev ? uAvg(prev.hours) : null;
+    const max = Math.max(...day.hours.filter(x => x != null)), maxH = day.hours.indexOf(max) + U_H0;
+    const diff = avg != null && pAvg != null ? avg - pAvg : null;
+    h += `<div class="ubars">${day.hours.map((p, i) => {
+      const pp = prev ? prev.hours[i] : null;
+      return `<div class="ucol ${i === curH ? 'cur' : ''}"><div class="uval">${p != null ? p : ''}</div><div class="utrack">
+        ${p != null ? `<div class="ubar" style="height:${p}%;background:${uColor(p)}"></div>` : ''}
+        ${pp != null ? `<div class="uprev" style="bottom:${pp}%"></div>` : ''}</div>
+        <div class="ulbl">${(i % 2 === 0) ? i + U_H0 : ''}</div></div>`;
+    }).join('')}</div>
+    <div class="muted tiny" style="margin-top:6px">Balken = Auslastung je Stunde in % · <span class="uleg"></span> Strich = gleicher Wochentag der Vorwoche${prev ? '' : ' (keine Daten)'}</div></div>
+    <div class="stats"><div class="stat"><b>${avg != null ? avg + ' %' : '–'}</b><span>Ø 6–22 Uhr</span></div>
+      <div class="stat"><b>${isFinite(max) ? max + ' %' : '–'}</b><span>Spitze${isFinite(max) ? ` (${maxH}–${maxH + 1} Uhr)` : ''}</span></div>
+      <div class="stat"><b style="color:${diff == null ? 'inherit' : diff > 0 ? 'var(--bad)' : 'var(--ok)'}">${diff == null ? '–' : (diff > 0 ? '+' : '') + diff}</b><span>vs. Vorwoche (%-Pkt.)</span></div></div>`;
+    const pts = day.slots.map((p, i) => p == null ? null : [i, p]).filter(Boolean);
+    if (pts.length >= 2) {
+      const W = 340, H = 110, x = i => 24 + i * (W - 30) / (U_NS - 1), y = p => H - 18 - p * (H - 30) / 100;
+      let path = '', prevI = -99;
+      pts.forEach(([i, p]) => { path += `${i - prevI > 3 ? 'M' : 'L'}${x(i).toFixed(1)} ${y(p).toFixed(1)} `; prevI = i; });
+      h += `<div class="card"><h3 style="margin-bottom:6px">Verlauf in 10-Minuten-Schritten</h3>
+        <svg viewBox="0 0 ${W} ${H}" style="width:100%;display:block">
+        ${[0, 50, 100].map(p => `<line x1="24" x2="${W - 6}" y1="${y(p)}" y2="${y(p)}" style="stroke:var(--line)" stroke-dasharray="3 4"/><text x="0" y="${y(p) + 3}" style="fill:var(--tx3)" font-size="9">${p}%</text>`).join('')}
+        ${[6, 10, 14, 18, 22].map(hh => `<text x="${x((hh - U_H0) * 6 - (hh === 22 ? 1 : 0))}" y="${H - 4}" style="fill:var(--tx3)" font-size="9" text-anchor="middle">${hh}</text>`).join('')}
+        <path d="${path}" fill="none" style="stroke:var(--acc)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        <div class="muted tiny">${pts.length} Messungen gespeichert</div></div>`;
+    }
+  }
+  const bytes = (localStorage.getItem(UKEY) || '').length;
+  h += `<div class="muted small" style="text-align:center;margin-top:6px">${keys.length} Tag(e) gespeichert · ${(bytes / 1024).toFixed(1)} KB<br>
+    Abruf alle 10 Min. (6–22 Uhr), solange die App geöffnet ist. Die Stundenwerte des Tages kommen bei jedem Öffnen komplett mit.</div>`;
+  return h;
+}
+
 /* ============ Start ============ */
 S = load(); save();
 if (S.current) ui.woOpen = true;
 render();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+fetchUtil(true);
+setInterval(utilTick, 60e3);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') fetchUtil(); });
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
