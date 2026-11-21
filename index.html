@@ -260,6 +260,11 @@ const DEFAULT_EX = [
   ['ueberzug','Überzugmaschine','Rücken','Maschine',5,[],'3012n'],
   // Schultern
   ['nacken','HN Nackendrückmaschine','Schultern','Maschine',5,['Trizeps'],'3096',[AB]],
+  // Arm-Varianten an Basic-Geräten (im Basic-Bereich gibt es keine reine Bizeps-/Trizepsmaschine)
+  ['latzug_ug','HN Latzug Untergriff eng','Bizeps','Maschine',5,['Rücken'],'3020',[AB]],
+  ['rudern_ug','HN Rudermaschine Untergriff','Bizeps','Maschine',5,['Rücken'],'3040',[AB]],
+  ['brust_eng','HN Brustpresse enger Griff','Trizeps','Maschine',5,['Brust','Schultern'],'3016',[AB]],
+  ['nacken_eng','HN Nackendrückmaschine enger Griff','Trizeps','Maschine',5,['Schultern'],'3096',[AB]],
   ['seitheben_pk','HN Seitheben Dual','Schultern','Scheibenmaschine',1.25,[],'4325',[AF]],
   ['reverse_fly','HN Butterfly Reverse','Schultern','Maschine',5,['Rücken'],'3025',[AB]],
   ['schulterpresse','Schulterpresse','Schultern','Maschine',5,['Trizeps'],'3032'],
@@ -442,6 +447,9 @@ const TEMPLATES = {
   gk: { name:'Ganzkörper', desc:'2–3× pro Woche · ideal für Einsteiger · nur HN-Geräte', days:[
     ['Ganzkörper A',[['beinpresse',3,8,12,2,150],['brustpresse',3,8,12,2,120],['latzug_masch',3,8,12,2,120],['beinbeuger_liegend',2,10,15,1,90],['nacken',2,8,12,2,90],['crunch_masch',2,10,15,1,60]]],
     ['Ganzkörper B',[['hackenschmidt',3,6,10,2,150],['rudern_masch',3,8,12,2,120],['bank_dual',3,8,12,2,120],['beinstrecker',2,12,15,1,90],['seitheben_pk',2,12,15,1,60],['curl_dual',2,10,12,1,60]]],
+  ]},
+  arme: { name:'Oberarme', desc:'1–2× pro Woche · Bizeps & Trizeps · nur HN Basic-Bereich (ohne Freihantelbereich)', days:[
+    ['Oberarme',[['latzug_ug',4,8,12,2,90],['brust_eng',4,8,12,2,90],['rudern_ug',3,10,12,1,75],['nacken_eng',3,10,12,1,75]]],
   ]},
 };
 
