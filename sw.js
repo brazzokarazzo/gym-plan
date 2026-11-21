@@ -1,5 +1,5 @@
 // Offline-Cache: App-Dateien werden beim ersten Aufruf gespeichert.
-const CACHE = 'gymplan-v11';
+const CACHE = 'gymplan-v12';
 const IMG_CACHE = 'gymplan-img';   // Gerätefotos (bleibt bei Updates erhalten)
 const FILES = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-512.png'];
 
@@ -21,7 +21,7 @@ self.addEventListener('fetch', e => {
   if (url.origin !== location.origin) return;
   // App-Dateien: Network first (für Updates), bei Offline aus dem Cache
   e.respondWith(
-    fetch(e.request).then(r => {
+    fetch(e.request, { cache: 'no-cache' }).then(r => {
       const copy = r.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));
       return r;

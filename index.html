@@ -812,9 +812,10 @@ function woDetailHTML(id) {
 }
 
 /* ---------- Mehr ---------- */
+const APP_VERSION = 12;
 function vMore() {
   const bytes = (localStorage.getItem(KEY) || '').length;
-  return `<div class="top"><h1>Mehr</h1></div>
+  return `<div class="top"><h1>Mehr</h1><span class="pill">Version ${APP_VERSION}</span></div>
   <div class="card"><h3 style="margin-bottom:10px">Einstellungen</h3>
     <div class="field"><label>Standard-Pause für freie Übungen (Sekunden)</label><input inputmode="numeric" data-f="setRest" value="${S.settings.rest}"></div>
     <div class="row between"><span>Ton am Ende der Pause</span><button class="chip ${S.settings.sound ? 'on' : ''}" data-a="toggleSound">${S.settings.sound ? 'An' : 'Aus'}</button></div>
@@ -1373,7 +1374,19 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 fetchUtil(true); syncRepo(true);
 setInterval(utilTick, 60e3);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { fetchUtil(); syncRepo(); } });
-if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  // Updates sofort holen: sw.js nie aus dem HTTP-Cache, bei jedem Öffnen nach Updates schauen, nach Update einmal neu laden
+  const hadSW = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => {
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') reg.update().catch(() => {}); });
+  }).catch(() => {});
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadSW || reloaded) return; reloaded = true;
+    if (document.activeElement && document.activeElement.matches('input')) return;   // nicht beim Tippen neu laden
+    location.reload();
+  });
+}
 </script>
 </body>
 </html>
