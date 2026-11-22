@@ -171,7 +171,8 @@ h3{font-size:17px;margin:0;font-weight:650}
 svg.chart{width:100%;height:auto;display:block}
 .pr{color:var(--warn);font-weight:700}
 a.iconbtn{text-decoration:none}
-.imglinks{display:flex;gap:8px;margin:0 0 14px}
+.imglinks{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
+.imglinks a.vid{flex-basis:100%;order:-1}
 .thumb{display:block;width:100%;aspect-ratio:16/10;object-fit:contain;background:#fff;border-radius:14px;margin:0 0 10px}
 /* Foto-Layer */
 #photo{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.94);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .2s}
@@ -447,7 +448,26 @@ const imgsFor = ex => ex.img ? [ex.img] : (G80_IMG[ex.g80] || []).map(p => G80_B
 const allImgUrls = () => [...new Set(S.exercises.flatMap(imgsFor))];
 const g80Url = ex => ex.g80 ? `https://gym80.de/produkt/${ex.g80}/` : '';
 const photoBtn = ex => imgsFor(ex).length ? `<button class="iconbtn" data-a="photo" data-x="${ex.id}" aria-label="Foto des Geräts">📷</button>` : '';
-const photoUrl = ex => 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent('McFit ' + ex.name + ' gym80');
+/* MuscleWiki-Videoanleitungen laut Geräteliste (Spalte „Video (MuscleWiki)“); Griff-Varianten nutzen das Video ihres Geräts */
+const MW_BASE = 'https://musclewiki.com/de-de/exercise/';
+const MW = {
+  hyperext:'machine-45-degree-back-extension', bauchbank:'bodyweight-situp', adduktor:'machine-hip-adduction', abduktor:'machine-hip-abduction',
+  beinbeuger_liegend:'machine-hamstring-curl', beinstrecker:'machine-leg-extension', wade_steh:'machine-standing-calf-raises',
+  beinpresse:'machine-horizontal-leg-press', reverse_fly:'machine-reverse-fly', butterfly:'machine-pec-fly', latzug_masch:'machine-pulldown',
+  rudern_masch:'machine-neutral-row', brustpresse:'machine-chest-press', nacken:'machine-overhand-overhead-press',
+  seilzug_explosiv:'cable-wood-chopper', rueckenstrecker:'machine-back-extension', crunch_masch:'machine-crunch',
+  crunch_masch2:'machine-plate-loaded-crunch', bauch_liegend:'smith-machine-reverse-crunch-hip-raise', multipresse:'smith-machine-squat',
+  bootybooster:'machine-glute-kickback', turm4:'pull-ups', powerrack:'barbell-squat', vstation:'cable-rope-pushdown',
+  kabel_doppelt:'cable-pec-fly', seitheben_pk:'machine-standing-lateral-raise', curl_dual:'machine-bicep-curl',
+  high_row:'machine-plate-loaded-pulldown', low_row:'machine-plate-loaded-low-row', bank_dual:'machine-chest-press',
+  inner_chest:'neutral-chest-press', bank_station:'barbell-bench-press', schraeg_station:'barbell-incline-bench-press',
+  negativ_station:'barbell-decline-bench-press', hackenschmidt:'machine-hack-squat', pivot_bp:'machine-leg-press',
+  beinpresse_45:'machine-leg-press', belt_squat:'machine-belt-squat', kniebeuge_masch:'machine-pendulum-squat',
+  reverse_hyper:'machine-reverse-hyperextension', wade_sitz_pk:'machine-seated-calf-raises', tbar:'machine-plate-loaded-t-bar-row',
+  latzug_ug:'machine-pulldown', rudern_ug:'machine-neutral-row', brust_eng:'machine-chest-press', nacken_eng:'machine-overhand-overhead-press',
+};
+const mwUrl = ex => MW[ex.id] ? MW_BASE + MW[ex.id] : null;
+const photoUrl = ex =>'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent('McFit ' + ex.name + ' gym80');
 
 /* Vorlagen (nur Geräte): [exId, Sätze, minWdh, maxWdh, RIR, Pause(s)] */
 const TEMPLATES = {
@@ -765,6 +785,7 @@ function exDetailHTML(id) {
   let h = `<h2 style="margin-top:6px">${esc(e.name)}</h2><div class="muted small" style="margin-bottom:12px">${esc(e.muscle)}${e.sec && e.sec.length ? ' (+ ' + e.sec.join(', ') + ')' : ''} · ${esc(e.equip)}${cardio ? ' · Stufe + Minuten' : ' · Steigerung ' + fmtKg(e.inc)}</div>
     ${imgsFor(e).length ? `<img class="thumb" src="${esc(imgsFor(e)[0])}" alt="" data-a="photo" data-x="${e.id}" onerror="this.remove()">` : ''}
     <div class="imglinks">${imgsFor(e).length ? `<button data-a="photo" data-x="${e.id}">📷 Foto ansehen</button>` : ''}
+      ${mwUrl(e) ? `<a class="vid" href="${mwUrl(e)}" target="_blank" rel="noopener">▶︎ Video-Anleitung (MuscleWiki)</a>` : ''}
       <a class="sec" href="${photoUrl(e)}" target="_blank" rel="noopener">🔎 McFit-Fotos (online)</a></div>`;
   if (best && cardio) h += `<div class="stats"><div class="stat"><b>${fmtN(best.e1)}</b><span>Höchste Stufe</span></div>
     <div class="stat"><b>${fmtN(hist.reduce((a, x) => a + x.min, 0))}</b><span>Minuten gesamt</span></div><div class="stat"><b>${hist.length}</b><span>Einheiten</span></div></div>`;
@@ -833,7 +854,7 @@ function woDetailHTML(id) {
 }
 
 /* ---------- Mehr ---------- */
-const APP_VERSION = 13;
+const APP_VERSION = 14;
 function vMore() {
   const bytes = (localStorage.getItem(KEY) || '').length;
   return `<div class="top"><h1>Mehr</h1><span class="pill">Version ${APP_VERSION}</span></div>
