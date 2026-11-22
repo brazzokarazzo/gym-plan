@@ -86,6 +86,8 @@ h3{font-size:17px;margin:0;font-weight:650}
 .chip.on{background:var(--acc);color:#fff}
 .chips.area .chip{background:transparent;border:1px solid var(--line);padding:6px 12px}
 .chips.area .chip.on{background:var(--accbg);color:var(--acc);border-color:var(--acc)}
+.chips.cat .chip{background:transparent;border:1px dashed var(--line);padding:6px 12px}
+.chips.cat .chip.on{background:var(--tx);color:var(--bg);border:1px solid var(--tx)}
 .hnpill{color:var(--acc);font-weight:600}
 .hero{background:linear-gradient(135deg,#ff6a3d,#c2185b);border:0;color:#fff}
 .hero .muted{color:rgba(255,255,255,.8)}
@@ -236,6 +238,20 @@ const fmtCardio = s => `Stufe ${fmtN(s.lvl)} · ${fmtN(s.min)} min`;
 const AB = 'Basic Bereich', AF = 'Freihantelbereich', AU = 'Functionalbereich', AC = 'Cardiobereich';
 const AREAS = [AB, AF, AU, AC];
 const AREA_SHORT = { [AB]: 'Basic', [AF]: 'Freihantel', [AU]: 'Functional', [AC]: 'Cardio' };
+/* Gerätekategorie laut Geräteliste McFit Heilbronn (Spalte „Kategorie“) */
+const CATS = ['Brust', 'Rücken', 'Schultern', 'Arme', 'Beine', 'Core'];
+const DEV_CAT = {
+  hyperext:'Rücken', bauchbank:'Core', adduktor:'Beine', abduktor:'Beine', beinbeuger_liegend:'Beine', beinstrecker:'Beine',
+  wade_steh:'Beine', beinpresse:'Beine', reverse_fly:'Schultern', butterfly:'Brust', latzug_masch:'Rücken', rudern_masch:'Rücken',
+  brustpresse:'Brust', nacken:'Schultern', seilzug_explosiv:'Core', rueckenstrecker:'Rücken', crunch_masch:'Core', crunch_masch2:'Core',
+  bauch_liegend:'Core', multipresse:'Beine', bootybooster:'Beine', turm4:'Rücken', powerrack:'Beine', vstation:'Arme',
+  kabel_doppelt:'Brust', seitheben_pk:'Schultern', curl_dual:'Arme', high_row:'Rücken', low_row:'Rücken', bank_dual:'Brust',
+  inner_chest:'Brust', bank_station:'Brust', schraeg_station:'Brust', negativ_station:'Brust', hackenschmidt:'Beine',
+  pivot_bp:'Beine', beinpresse_45:'Beine', belt_squat:'Beine', kniebeuge_masch:'Beine', reverse_hyper:'Rücken',
+  wade_sitz_pk:'Beine', tbar:'Rücken',
+  // Griff-Varianten erben die Kategorie ihres Geräts
+  latzug_ug:'Rücken', rudern_ug:'Rücken', brust_eng:'Brust', nacken_eng:'Schultern',
+};
 const DEFAULT_EX = [
   // Brust
   ['brustpresse','HN Brustpresse','Brust','Maschine',5,['Trizeps','Schultern'],'3016',[AB]],
@@ -319,7 +335,7 @@ const DEFAULT_EX = [
   ['cardio_cross','HN Crosstrainer','Cardio','Cardiogerät',1,[],'',[AC]],
   ['cardio_lauf','HN Laufband','Cardio','Cardiogerät',1,[],'',[AC]],
   ['cardio_ruder','HN Rudergerät','Cardio','Cardiogerät',1,[],'',[AC]],
-].map(([id,name,muscle,equip,inc,sec,g80,area]) => ({id,name,muscle,equip,inc,sec,g80,area:area||[],hn:!!area,custom:false}));
+].map(([id,name,muscle,equip,inc,sec,g80,area]) => ({id,name,muscle,equip,inc,sec,g80,area:area||[],hn:!!area,cat:DEV_CAT[id]||null,custom:false}));
 const areaLabel = ex => (ex.area || []).map(a => AREA_SHORT[a] || a).join(' / ');
 
 /* Alte Hantel-Übungen (Version 1) → Geräte-Ersatz in bestehenden Plänen */
@@ -486,7 +502,7 @@ function migrate(d) {
   // Standardübungen aktualisieren/ergänzen (eigene Steigerung bleibt erhalten)
   DEFAULT_EX.forEach(def => {
     const cur = d.exercises.find(e => e.id === def.id);
-    if (cur) Object.assign(cur, { name: def.name, muscle: def.muscle, equip: def.equip, sec: def.sec, g80: def.g80, area: def.area, hn: def.hn });
+    if (cur) Object.assign(cur, { name: def.name, muscle: def.muscle, equip: def.equip, sec: def.sec, g80: def.g80, area: def.area, hn: def.hn, cat: def.cat });
     else d.exercises.push({...def});
   });
   d.settings = Object.assign({ rest: 120, sound: true }, d.settings);
@@ -550,7 +566,7 @@ function bestE1rm(exId, excludeId) {
 }
 
 /* ============ UI state ============ */
-const ui = { tab: 'train', planId: null, dayId: null, exFilter: 'Alle', exArea: 'Alle', pickArea: 'HN', exSearch: '', statEx: null };
+const ui = { tab: 'train', planId: null, dayId: null, exFilter: 'Alle', exArea: 'Alle', pickArea: 'HN', exCat: 'Alle', pickCat: 'Alle', exSearch: '', statEx: null };
 const TABS = [
   ['train','Training','<path d="M6.5 6.5v11M17.5 6.5v11M3 9.5v5M21 9.5v5M6.5 12h11" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/>'],
   ['plans','Pläne','<rect x="4" y="3.5" width="16" height="17" rx="3" stroke="currentColor" stroke-width="2" fill="none"/><path d="M8 8.5h8M8 12h8M8 15.5h5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>'],
@@ -701,14 +717,19 @@ function exHistory(exId) {
 const areaOk = (e, f) => !f || f === 'Alle' || (f === 'HN' ? !!e.hn : (e.area || []).includes(f));
 const areaChips = (cur, action) => `<div class="chips area">${[['Alle', 'Alle Studios'], ['HN', '📍 Nur HN'], ...AREAS.map(a => [a, AREA_SHORT[a]])]
   .map(([k, l]) => `<button class="chip ${(cur || 'Alle') === k ? 'on' : ''}" data-a="${action}" data-k="${k}">${l}</button>`).join('')}</div>`;
-const exSub = e => `${esc(e.muscle)} · ${esc(e.equip)}${e.area && e.area.length ? ` · <span class="hnpill">${esc(areaLabel(e))}</span>` : ''}`;
+/* Filter nach Gerätekategorie: 'Alle' | eine der CATS */
+const catOk = (e, f) => !f || f === 'Alle' || e.cat === f;
+const catChips = (cur, action) => `<div class="chips cat">${['Alle', ...CATS]
+  .map(k => `<button class="chip ${(cur || 'Alle') === k ? 'on' : ''}" data-a="${action}" data-k="${k}">${k === 'Alle' ? 'Alle Kategorien' : k}</button>`).join('')}</div>`;
+const exSub = e => `${e.cat ? `<b>${esc(e.cat)}</b> · ` : ''}${esc(e.muscle)} · ${esc(e.equip)}${e.area && e.area.length ? ` · <span class="hnpill">${esc(areaLabel(e))}</span>` : ''}`;
 function vEx() {
   const q = ui.exSearch.toLowerCase();
-  const list = S.exercises.filter(e => (!e.legacy || exHistory(e.id).length) && (ui.exFilter === 'Alle' || e.muscle === ui.exFilter) && areaOk(e, ui.exArea) && (!q || e.name.toLowerCase().includes(q)))
+  const list = S.exercises.filter(e => (!e.legacy || exHistory(e.id).length) && (ui.exFilter === 'Alle' || e.muscle === ui.exFilter) && areaOk(e, ui.exArea) && catOk(e, ui.exCat) && (!q || e.name.toLowerCase().includes(q)))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'));
   let h = `<div class="top"><h1>Übungen</h1><button class="btn sm" data-a="newEx">+ Eigene</button></div>
     <input type="search" placeholder="Suchen…" value="${esc(ui.exSearch)}" data-f="exSearch" style="margin-bottom:10px">
     ${areaChips(ui.exArea, 'exArea')}
+    ${catChips(ui.exCat, 'exCat')}
     <div class="chips">${['Alle', ...MUSCLES].map(m => `<button class="chip ${ui.exFilter === m ? 'on' : ''}" data-a="exFilter" data-k="${m}">${m}</button>`).join('')}</div>
     <div class="card list" style="padding:2px 14px" id="exlist">`;
   h += list.map(e => {
@@ -812,7 +833,7 @@ function woDetailHTML(id) {
 }
 
 /* ---------- Mehr ---------- */
-const APP_VERSION = 12;
+const APP_VERSION = 13;
 function vMore() {
   const bytes = (localStorage.getItem(KEY) || '').length;
   return `<div class="top"><h1>Mehr</h1><span class="pill">Version ${APP_VERSION}</span></div>
@@ -1015,14 +1036,15 @@ async function downloadImgs(btn) {
 function pickExercise(cb, title = 'Übung wählen') {
   sheetCb = cb; ui.pickFilter = ui.pickFilter || 'Alle'; ui.pickQ = '';
   openSheet(`<h2 style="margin-top:6px">${title}</h2><input type="search" placeholder="Suchen…" data-f="pickQ" style="margin-bottom:10px">
-    <div id="pickArea"></div><div class="chips" id="pickChips"></div><div class="list" id="pickList"></div>`);
+    <div id="pickArea"></div><div id="pickCat"></div><div class="chips" id="pickChips"></div><div class="list" id="pickList"></div>`);
   renderPick();
 }
 function renderPick() {
   const q = (ui.pickQ || '').toLowerCase();
   $('#pickArea').innerHTML = areaChips(ui.pickArea, 'pickArea');
+  $('#pickCat').innerHTML = catChips(ui.pickCat, 'pickCat');
   $('#pickChips').innerHTML = ['Alle', ...MUSCLES].map(m => `<button class="chip ${ui.pickFilter === m ? 'on' : ''}" data-a="pickFilter" data-k="${m}">${m}</button>`).join('');
-  $('#pickList').innerHTML = S.exercises.filter(e => !e.legacy && (ui.pickFilter === 'Alle' || e.muscle === ui.pickFilter) && areaOk(e, ui.pickArea) && (!q || e.name.toLowerCase().includes(q)))
+  $('#pickList').innerHTML = S.exercises.filter(e => !e.legacy && (ui.pickFilter === 'Alle' || e.muscle === ui.pickFilter) && areaOk(e, ui.pickArea) && catOk(e, ui.pickCat) && (!q || e.name.toLowerCase().includes(q)))
     .sort((a, b) => a.name.localeCompare(b.name, 'de'))
     .map(e => `<div class="item" data-a="pickEx" data-x="${e.id}"><div class="grow"><div>${esc(e.name)}</div><div class="muted small">${exSub(e)}</div></div><span style="color:var(--acc);font-size:22px">+</span></div>`).join('')
     || `<div class="empty">Nichts gefunden.</div>`;
@@ -1091,6 +1113,8 @@ const A = {
   pickFilter: el => { ui.pickFilter = el.dataset.k; renderPick(); },
   setTheme: el => { S.settings.theme = el.dataset.k; save(); render(); },
   pickArea: el => { ui.pickArea = el.dataset.k; renderPick(); },
+  pickCat: el => { ui.pickCat = el.dataset.k; renderPick(); },
+  exCat: el => { ui.exCat = el.dataset.k; render(); },
   exArea: el => { ui.exArea = el.dataset.k; render(); },
   planToHN: () => { const n = planToHN(curPlan()); save(); render(); toast(n ? `${n} Übungen auf HN-Geräte umgestellt` : 'Keine passenden HN-Geräte gefunden'); },
   pickEx: el => { const cb = sheetCb; if (typeof cb === 'function') cb(el.dataset.x); },
