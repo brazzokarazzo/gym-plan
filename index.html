@@ -201,6 +201,7 @@ a.iconbtn{text-decoration:none}
 <div id="sheetbg" data-a="closeSheet"></div>
 <div id="sheet"><div class="shead"><div class="grab"></div><button class="sclose" data-a="closeSheet" aria-label="Schließen">✕</button></div><div id="sheetc"></div></div>
 <div id="toast"></div>
+<input type="file" id="planFile" accept="application/json,.json" style="display:none">
 <div id="photo"><div class="ph"><b id="phTitle"></b><button class="close" data-a="closePhoto" aria-label="Schließen">✕</button></div>
   <div class="slides" id="phSlides"></div><div class="dots" id="phDots"></div><div class="pf" id="phFoot"></div></div>
 
@@ -676,6 +677,9 @@ function vPlans() {
     h += `<div class="card" data-a="editPlan" data-p="${p.id}"><div class="row"><div class="grow"><div class="row" style="gap:8px"><h3>${esc(p.name)}</h3>${active ? '<span class="pill ok">Aktiv</span>' : ''}</div>
       <div class="muted small">${p.days.length} Tage · ${p.days.map(d => esc(d.name)).join(', ')}</div></div><span class="chev">›</span></div></div>`;
   });
+  h += `<div class="row" style="gap:8px;margin-top:6px">${S.plans.length ? `<button class="btn sec grow sm" data-a="exportAllPlans">⇪ Alle Pläne exportieren</button>` : ''}
+    <button class="btn sec grow sm" data-a="importPlans">⇩ Plan importieren</button></div>
+    <div class="muted tiny" style="margin-top:8px;text-align:center">Export enthält nur die Grunddaten (Tage, Übungen, Sätze, Wdh., Pausen) – keine absolvierten Trainings.</div>`;
   return h;
 }
 function vPlanEdit() {
@@ -689,7 +693,8 @@ function vPlanEdit() {
     h += `<div class="card"><div class="row"><div class="grow" data-a="editDay" data-d="${d.id}"><h3>${esc(d.name)}</h3><div class="muted small">${dayMeta(d)}</div></div>
       <button class="iconbtn" data-a="dayUp" data-i="${i}">↑</button><button class="iconbtn" data-a="editDay" data-d="${d.id}">›</button></div></div>`;
   });
-  h += `<button class="btn sec block" data-a="addDay">+ Trainingstag hinzufügen</button>`;
+  h += `<button class="btn sec block" data-a="addDay">+ Trainingstag hinzufügen</button>
+    <div class="row" style="gap:8px;margin-top:10px"><button class="btn ghost grow sm" data-a="exportPlan">⇪ Plan exportieren</button><button class="btn ghost grow sm" data-a="importDay">⇩ Tag importieren</button></div>`;
   return h;
 }
 function vDayEdit() {
@@ -855,7 +860,7 @@ function woDetailHTML(id) {
 }
 
 /* ---------- Mehr ---------- */
-const APP_VERSION = 16;
+const APP_VERSION = 17;
 function vMore() {
   const bytes = (localStorage.getItem(KEY) || '').length;
   return `<div class="top"><h1>Mehr</h1><span class="pill">Version ${APP_VERSION}</span></div>
@@ -1182,11 +1187,17 @@ const A = {
   planMenu: () => {
     const p = curPlan();
     menu([
+      ['Plan exportieren', () => { closeSheet(); exportPlans([p], p.name); }],
+      ['Tag importieren', () => { closeSheet(); A.importDay(); }],
       ['Auf HN-Geräte umstellen', () => A.planToHN()],
       ['Plan duplizieren', () => { const c = JSON.parse(JSON.stringify(p)); c.id = uid(); c.name += ' (Kopie)'; c.days.forEach(d => { d.id = uid(); d.items.forEach(i => i.id = uid()); }); S.plans.push(c); ui.planId = c.id; save(); render(); }],
       ['Plan löschen', () => { if (!confirm(`„${p.name}“ löschen? Bisherige Trainings bleiben erhalten.`)) return; S.plans = S.plans.filter(x => x.id !== p.id); if (S.activePlanId === p.id) S.activePlanId = S.plans[0] ? S.plans[0].id : null; ui.planId = null; save(); render(); }, true],
     ]);
   },
+  exportAllPlans: () => exportPlans(S.plans, 'alle-plaene'),
+  exportPlan: () => { const p = curPlan(); exportPlans([p], p.name); },
+  importPlans: () => { ui.importMode = 'plans'; $('#planFile').click(); },
+  importDay: () => { ui.importMode = 'day'; $('#planFile').click(); },
   addDay: () => { const p = curPlan(); const d = { id: uid(), name: 'Tag ' + String.fromCharCode(65 + p.days.length), items: [] }; p.days.push(d); ui.dayId = d.id; save(); render(); scrollTop(); },
   dayUp: el => { move(curPlan().days, +el.dataset.i, -1); save(); render(); },
   editDay: el => { ui.dayId = el.dataset.d; render(); scrollTop(); },
@@ -1194,6 +1205,7 @@ const A = {
   dayMenu: () => {
     const p = curPlan(), d = curDay();
     menu([
+      ['Tag exportieren', () => { closeSheet(); exportDay(d, p.name); }],
       ['Tag duplizieren', () => { const c = JSON.parse(JSON.stringify(d)); c.id = uid(); c.name += ' (Kopie)'; c.items.forEach(i => i.id = uid()); p.days.splice(p.days.indexOf(d) + 1, 0, c); ui.dayId = c.id; save(); render(); }],
       ['Tag löschen', () => { if (!confirm(`„${d.name}“ löschen?`)) return; p.days = p.days.filter(x => x !== d); ui.dayId = null; save(); render(); }, true],
     ]);
@@ -1274,6 +1286,9 @@ document.addEventListener('change', ev => {
   const el = ev.target;
   if (el.dataset.f === 'statEx') { ui.statEx = el.value; render(); }
   if (el.dataset.f === 'utilDate' && el.value) { ui.utilDay = el.value.replace(/-/g, ''); el.blur(); render(); }
+  if (el.id === 'planFile' && el.files[0]) {
+    const r = new FileReader(); r.onload = () => importPlanFile(r.result); r.readAsText(el.files[0]); el.value = '';
+  }
   if (el.id === 'importFile' && el.files[0]) {
     const r = new FileReader();
     r.onload = () => {
@@ -1292,6 +1307,66 @@ document.addEventListener('keydown', ev => {
   if (ev.key !== 'Enter' || !ev.target.matches('#wo input')) return;
   ev.preventDefault(); const ins = [...document.querySelectorAll('#wo input')]; const n = ins[ins.indexOf(ev.target) + 1]; if (n) n.focus(); else ev.target.blur();
 });
+
+/* ============ Export/Import von Plänen und Tagen (nur Grunddaten, keine absolvierten Trainings) ============ */
+const ITEM_KEYS = ['exId', 'sets', 'repMin', 'repMax', 'rir', 'rest', 'minutes', 'level'];
+const cleanDay = d => ({ name: d.name, items: (d.items || []).map(it => Object.fromEntries(ITEM_KEYS.filter(k => it[k] != null && it[k] !== '').map(k => [k, it[k]]))) });
+const customFor = days => { const ids = new Set(days.flatMap(d => d.items.map(i => i.exId)));
+  return S.exercises.filter(e => e.custom && ids.has(e.id)).map(e => ({ id: e.id, name: e.name, muscle: e.muscle, equip: e.equip, inc: e.inc, sec: e.sec || [] })); };
+const fileName = s => (s || 'export').replace(/[^\wäöüÄÖÜß-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'export';
+async function shareJSON(name, obj, title) {
+  const blob = new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' });
+  try {
+    const file = new File([blob], name, { type: 'application/json' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return; }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+function exportPlans(plans, base) {
+  shareJSON(`gymplan-${fileName(base)}.json`, { app: 'gymplan', type: 'plans', v: 1, exported: new Date().toISOString(),
+    plans: plans.map(p => ({ name: p.name, days: p.days.map(cleanDay) })), exercises: customFor(plans.flatMap(p => p.days)) }, 'Gym Plan – ' + base);
+}
+function exportDay(d, planName) {
+  shareJSON(`gymplan-tag-${fileName(d.name)}.json`, { app: 'gymplan', type: 'day', v: 1, exported: new Date().toISOString(),
+    plan: planName, day: cleanDay(d), exercises: customFor([d]) }, 'Gym Plan – ' + d.name);
+}
+/* Datei lesen → { plans:[{name,days}], days:[…], skipped } ; akzeptiert Plan-, Tages- und komplette Backup-Dateien */
+function parsePlanFile(txt) {
+  const d = JSON.parse(txt);
+  let plans = [];
+  if (d && d.app === 'gymplan' && d.type === 'plans' && Array.isArray(d.plans)) plans = d.plans;
+  else if (d && d.app === 'gymplan' && d.type === 'day' && d.day) plans = [{ name: d.plan || 'Importierter Plan', days: [d.day] }];
+  else if (d && d.version && Array.isArray(d.plans)) plans = d.plans;     // komplettes Backup: nur die Pläne
+  else throw new Error('Keine Gym-Plan-Datei');
+  (d.version ? (d.exercises || []).filter(e => e && e.custom) : (d.exercises || [])).forEach(e => {
+    if (e && e.id && e.name && !S.exercises.some(x => x.id === e.id))
+      S.exercises.push({ id: e.id, name: e.name, muscle: e.muscle || 'Variabel', equip: e.equip || 'Maschine', inc: e.inc || 2.5, sec: e.sec || [], area: [], hn: false, cat: null, custom: true });
+  });
+  let skipped = 0;
+  const mkDay = day => ({ id: uid(), name: String(day.name || 'Tag'), items: (day.items || []).filter(it => {
+      const ok = it && S.exercises.some(e => e.id === it.exId); if (!ok) skipped++; return ok; })
+    .map(it => Object.assign({ sets: 3, repMin: 8, repMax: 12, rir: 2, rest: 120, minutes: 15, level: 8 }, cleanDay({ items: [it] }).items[0], { id: uid() })) });
+  plans = plans.filter(p => p && Array.isArray(p.days)).map(p => ({ name: String(p.name || 'Importierter Plan'), days: p.days.map(mkDay) }));
+  return { plans, single: d.type === 'day', skipped };
+}
+function importPlanFile(txt) {
+  let r; try { r = parsePlanFile(txt); } catch (e) { return toast('Ungültige Datei – bitte eine Gym-Plan-Exportdatei wählen'); }
+  const note = r.skipped ? ` (${r.skipped} unbekannte Übung(en) übersprungen)` : '';
+  if (ui.importMode === 'day') {     // in den geöffneten Plan einfügen
+    const p = curPlan(); if (!p) return;
+    const days = r.plans.flatMap(x => x.days); if (!days.length) return toast('Keine Trainingstage in der Datei');
+    if (!confirm(`${days.length} Trainingstag(e) in „${p.name}“ einfügen?\n${days.map(d => '• ' + d.name).join('\n')}`)) return;
+    days.forEach(d => { if (p.days.some(x => x.name === d.name)) d.name += ' (Import)'; p.days.push(d); });
+    save(); render(); toast(`${days.length} Tag(e) importiert${note}`); return;
+  }
+  if (!r.plans.length) return toast('Keine Pläne in der Datei');
+  if (!confirm(`${r.plans.length} Plan/Pläne importieren?\n${r.plans.map(p => `• ${p.name} (${p.days.length} Tage)`).join('\n')}`)) return;
+  r.plans.forEach(p => { if (S.plans.some(x => x.name === p.name)) p.name += ' (Import)'; p.id = uid(); S.plans.push(p); });
+  if (!S.activePlanId) S.activePlanId = r.plans[0].id;
+  if (r.plans.length === 1) ui.planId = r.plans[0].id;
+  save(); render(); toast(`${r.plans.length} Plan/Pläne importiert${note}`);
+}
 
 /* ============ Studio-Auslastung ============ */
 /* Speicherformat (eigener Key, platzsparend): { v:1, d: { "YYYYMMDD": "<16 Zeichen Stunden 6–21 Uhr><96 Zeichen 10-min-Werte 6:00–21:50>" } }
