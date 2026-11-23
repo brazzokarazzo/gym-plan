@@ -172,7 +172,6 @@ svg.chart{width:100%;height:auto;display:block}
 .pr{color:var(--warn);font-weight:700}
 a.iconbtn{text-decoration:none}
 .imglinks{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
-.imglinks a.vid{flex-basis:100%;order:-1}
 .thumb{display:block;width:100%;aspect-ratio:16/10;object-fit:contain;background:#fff;border-radius:14px;margin:0 0 10px}
 /* Foto-Layer */
 #photo{position:fixed;inset:0;z-index:70;background:rgba(0,0,0,.94);display:flex;flex-direction:column;opacity:0;pointer-events:none;transition:opacity .2s}
@@ -467,7 +466,6 @@ const MW = {
   latzug_ug:'machine-pulldown', rudern_ug:'machine-neutral-row', brust_eng:'machine-chest-press', nacken_eng:'machine-overhand-overhead-press',
 };
 const mwUrl = ex => MW[ex.id] ? MW_BASE + MW[ex.id] : null;
-const photoUrl = ex =>'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent('McFit ' + ex.name + ' gym80');
 
 /* Vorlagen (nur Geräte): [exId, Sätze, minWdh, maxWdh, RIR, Pause(s)] */
 const TEMPLATES = {
@@ -788,8 +786,7 @@ function exDetailHTML(id) {
   let h = `<h2 style="margin-top:6px">${esc(e.name)}</h2><div class="muted small" style="margin-bottom:12px">${esc(e.muscle)}${e.sec && e.sec.length ? ' (+ ' + e.sec.join(', ') + ')' : ''} · ${esc(e.equip)}${cardio ? ' · Stufe + Minuten' : ' · Steigerung ' + fmtKg(e.inc)}</div>
     ${imgsFor(e).length ? `<img class="thumb" src="${esc(imgsFor(e)[0])}" alt="" data-a="photo" data-x="${e.id}" onerror="this.remove()">` : ''}
     <div class="imglinks">${imgsFor(e).length ? `<button data-a="photo" data-x="${e.id}">📷 Foto ansehen</button>` : ''}
-      ${mwUrl(e) ? `<a class="vid" href="${mwUrl(e)}" target="_blank" rel="noopener">▶︎ Video-Anleitung (MuscleWiki)</a>` : ''}
-      <a class="sec" href="${photoUrl(e)}" target="_blank" rel="noopener">🔎 McFit-Fotos (online)</a></div>`;
+      ${mwUrl(e) ? `<a class="vid" href="${mwUrl(e)}" target="_blank" rel="noopener">▶︎ Video-Anleitung (MuscleWiki)</a>` : ''}</div>`;
   if (best && cardio) h += `<div class="stats"><div class="stat"><b>${fmtN(best.e1)}</b><span>Höchste Stufe</span></div>
     <div class="stat"><b>${fmtN(hist.reduce((a, x) => a + x.min, 0))}</b><span>Minuten gesamt</span></div><div class="stat"><b>${hist.length}</b><span>Einheiten</span></div></div>`;
   else if (best) h += `<div class="stats"><div class="stat"><b>${Math.round(best.e1)}</b><span>Bestes e1RM kg</span></div>
@@ -858,7 +855,7 @@ function woDetailHTML(id) {
 }
 
 /* ---------- Mehr ---------- */
-const APP_VERSION = 15;
+const APP_VERSION = 16;
 function vMore() {
   const bytes = (localStorage.getItem(KEY) || '').length;
   return `<div class="top"><h1>Mehr</h1><span class="pill">Version ${APP_VERSION}</span></div>
