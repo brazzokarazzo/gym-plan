@@ -638,8 +638,11 @@ function vTrain() {
   let h = `<div class="top"><div><div class="muted small">${new Date().toLocaleDateString('de-DE',{weekday:'long', day:'numeric', month:'long'})}</div><h1>Training</h1></div>
     <span class="pill acc">${thisWeek}× diese Woche</span></div>`;
   if (S.current) {
-    h += `<div class="card hero"><h3>Training läuft</h3><div class="muted small" style="margin:4px 0 12px">${esc(S.current.name)} · seit ${fmtDur(Date.now() - S.current.start)}</div>
-      <button class="btn block" data-a="openWo">Fortsetzen</button></div>`;
+    h += S.current.edit
+      ? `<div class="card hero"><h3>Training wird bearbeitet</h3><div class="muted small" style="margin:4px 0 12px">${esc(S.current.name)} vom ${fmtDate(S.current.start)}</div>
+        <button class="btn block" data-a="openWo">Weiter bearbeiten</button></div>`
+      : `<div class="card hero"><h3>Training läuft</h3><div class="muted small" style="margin:4px 0 12px">${esc(S.current.name)} · seit ${fmtDur(Date.now() - S.current.start)}</div>
+        <button class="btn block" data-a="openWo">Fortsetzen</button></div>`;
   } else if (plan) {
     const nd = nextDay(plan);
     if (nd) h += `<div class="card hero"><div class="muted small">Nächstes Training · ${esc(plan.name)}</div><h1 style="font-size:26px;margin:2px 0">${esc(nd.name)}</h1>
@@ -849,12 +852,13 @@ function woDetailHTML(id) {
   const vol = w.entries.reduce((b, e) => b + e.sets.reduce((c, s) => c + (s.w || 0) * (s.r || 0), 0), 0);
   return `<h2 style="margin-top:6px">${esc(w.name)}</h2><div class="muted small" style="margin-bottom:12px">${fmtDate(w.start)} · ${new Date(w.start).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} · ${fmtDur((w.end||w.start) - w.start)} · ${Math.round(vol)} kg Volumen</div>
     ${w.entries.map(e => { const c = isCardio(exById(e.exId)); return `<div class="card"><b>${c ? '🚴 ' : ''}${esc(exById(e.exId).name)}</b><div class="small muted" style="margin-top:4px">${e.sets.map((s, i) => c ? `${i + 1}. ${fmtCardio(s)}` : `${i + 1}. ${fmtN(s.w)} kg × ${s.r}${s.rir != null ? ' @ RIR ' + s.rir : ''}`).join('<br>')}</div></div>`; }).join('')}
+    <button class="btn block" data-a="reopenWo" data-w="${w.id}" style="margin-bottom:10px">✏️ Training bearbeiten</button>
     <button class="btn sec block" data-a="closeSheet" style="margin-bottom:10px">Schließen</button>
     <button class="btn danger block" data-a="delWo" data-w="${w.id}">Training löschen</button>`;
 }
 
 /* ---------- Mehr ---------- */
-const APP_VERSION = 14;
+const APP_VERSION = 15;
 function vMore() {
   const bytes = (localStorage.getItem(KEY) || '').length;
   return `<div class="top"><h1>Mehr</h1><span class="pill">Version ${APP_VERSION}</span></div>
@@ -904,14 +908,24 @@ function startWorkout(planId, dayId) {
     entries: d ? d.items.map(it => makeEntry(it.exId, { sets: +it.sets, repMin: +it.repMin, repMax: +it.repMax, rir: +it.rir, rest: +it.rest, minutes: num(it.minutes), level: num(it.level) })) : [] };
   ui.woOpen = true; save(); render(); unlockAudio();
 }
+/* Abgeschlossenes Training wieder öffnen: wird als S.current mit edit-Markierung geladen, das Original bleibt bis zum Speichern unverändert */
+function reopenWorkout(id) {
+  if (S.current) return toast(S.current.edit ? 'Es wird bereits ein Training bearbeitet' : 'Erst das laufende Training beenden');
+  const w = S.workouts.find(x => x.id === id); if (!w) return;
+  S.current = { id: w.id, planId: w.planId, dayId: w.dayId, name: w.name, start: w.start, timer: null, edit: { end: w.end || w.start },
+    entries: w.entries.map(e => ({ id: uid(), exId: e.exId, t: fullT(e.t), ...(e.cardio ? { cardio: true } : {}), sugg: {}, prev: [],
+      sets: e.sets.map(s => e.cardio ? { lvl: fmtN(s.lvl), min: fmtN(s.min), done: true }
+        : { w: fmtN(s.w), r: String(s.r ?? ''), rir: s.rir != null ? String(s.rir) : '', done: true }) })) };
+  closeSheet(); ui.woOpen = true; save(); render();
+}
 function renderWorkout() {
   const root = $('#woRoot'); const c = S.current;
   if (!c || !ui.woOpen) { root.innerHTML = ''; return; }
   const sc = $('#woscroll'), top = sc ? sc.scrollTop : 0;
   const done = c.entries.reduce((a, e) => a + e.sets.filter(s => s.done).length, 0), all = c.entries.reduce((a, e) => a + e.sets.length, 0);
   let h = `<div id="wo"><div class="wohead"><button class="back" data-a="minWo">⌄</button>
-    <div class="ttl"><b>${esc(c.name)}</b><span class="small muted"><span id="woClock">${fmtClock((Date.now() - c.start) / 1000)}</span> · ${done}/${all} Sätze</span></div>
-    <button class="btn sm" data-a="finishWo">Fertig</button></div><div id="woscroll">`;
+    <div class="ttl"><b>${c.edit ? '✏️ ' : ''}${esc(c.name)}</b><span class="small muted">${c.edit ? `Bearbeiten · ${fmtDate(c.start)}` : `<span id="woClock">${fmtClock((Date.now() - c.start) / 1000)}</span>`} · ${done}/${all} Sätze</span></div>
+    <button class="btn sm" data-a="finishWo">${c.edit ? 'Speichern' : 'Fertig'}</button></div><div id="woscroll">`;
   c.entries.forEach((e, ei) => {
     const ex = exById(e.exId), t = e.t;
     if (e.cardio) {
@@ -947,7 +961,7 @@ function renderWorkout() {
       ${e.sets.length > 1 ? `<button class="btn ghost sm" style="color:var(--tx3)" data-a="delSet" data-e="${ei}">− Satz</button>` : ''}</div></div>`;
   });
   h += `<button class="btn sec block" data-a="woAddEx">+ Übung hinzufügen</button>
-    <button class="btn ghost block" style="color:var(--bad);margin-top:10px" data-a="cancelWo">Training verwerfen</button></div></div>`;
+    <button class="btn ghost block" style="color:var(--bad);margin-top:10px" data-a="cancelWo">${c.edit ? 'Änderungen verwerfen' : 'Training verwerfen'}</button></div></div>`;
   h += timerHTML();
   root.innerHTML = h;
   const ns = $('#woscroll'); if (ns) ns.scrollTop = top;
@@ -969,7 +983,7 @@ function beep() {
   if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
 }
 setInterval(() => {
-  const c = S && S.current; if (!c || !ui.woOpen) return;
+  const c = S && S.current; if (!c || !ui.woOpen || c.edit) return;
   const clk = $('#woClock'); if (clk) clk.textContent = fmtClock((Date.now() - c.start) / 1000);
   const t = c.timer; if (!t) return;
   const left = (t.end - Date.now()) / 1000, el = $('#timer');
@@ -986,6 +1000,16 @@ function finishWorkout() {
     sets: e.sets.filter(s => s.done).map(s => e.cardio ? { lvl: num(s.lvl) || 0, min: num(s.min) || 0 } : { w: num(s.w) || 0, r: num(s.r) || 0, rir: num(s.rir) }) })).filter(e => e.sets.length);
   const carMin = entries.filter(e => e.cardio).reduce((a, e) => a + e.sets.reduce((b, s) => b + s.min, 0), 0);
   const strSets = entries.filter(e => !e.cardio).reduce((a, e) => a + e.sets.length, 0);
+  if (c.edit) {   // Bearbeitung: Original ersetzen, Datum und Dauer bleiben
+    const i = S.workouts.findIndex(x => x.id === c.id);
+    if (!entries.length) {
+      if (!confirm('Keine abgehakten Sätze mehr. Gespeichertes Training löschen?')) return;
+      if (i >= 0) S.workouts.splice(i, 1); S.current = null; ui.woOpen = false; save(); render(); toast('Training gelöscht'); return;
+    }
+    const nw = { id: c.id, planId: c.planId, dayId: c.dayId, name: c.name, start: c.start, end: c.edit.end, entries };
+    if (i >= 0) S.workouts[i] = nw; else S.workouts.push(nw);
+    S.current = null; ui.woOpen = false; save(); render(); toast('✓ Training aktualisiert'); return;
+  }
   if (!entries.length) { if (confirm('Keine abgeschlossenen Sätze. Training verwerfen?')) { S.current = null; ui.woOpen = false; save(); render(); } return; }
   const w = { id: c.id, planId: c.planId, dayId: c.dayId, name: c.name, start: c.start, end: Date.now(), entries };
   const prs = entries.filter(e => !e.cardio).filter(e => { const b = bestE1rm(e.exId); const now = Math.max(...e.sets.map(s => e1rm(s.w, s.r, s.rir))); return b > 0 && now > b + 0.01; });
@@ -1088,7 +1112,11 @@ const A = {
   startFree: () => startWorkout(null, null),
   openWo: () => { ui.woOpen = true; render(); },
   minWo: () => { ui.woOpen = false; render(); },
-  cancelWo: () => { if (confirm('Training wirklich verwerfen? Alle Eingaben gehen verloren.')) { S.current = null; ui.woOpen = false; save(); render(); } },
+  cancelWo: () => {
+    const msg = S.current.edit ? 'Änderungen verwerfen? Das gespeicherte Training bleibt unverändert.' : 'Training wirklich verwerfen? Alle Eingaben gehen verloren.';
+    if (confirm(msg)) { S.current = null; ui.woOpen = false; save(); render(); }
+  },
+  reopenWo: el => reopenWorkout(el.dataset.w),
   finishWo: () => {
     const open = S.current.entries.reduce((a, e) => a + e.sets.filter(s => !s.done).length, 0);
     if (open && !confirm(`${open} Satz/Sätze nicht abgehakt – trotzdem beenden? Offene Sätze werden nicht gespeichert.`)) return;
@@ -1108,7 +1136,7 @@ const A = {
       s.done = true;
       // Gewicht auf folgende offene Sätze übertragen
       for (let i = +el.dataset.s + 1; i < e.sets.length; i++) if (!e.sets[i].done) e.sets[i].w = s.w;
-      startTimer(e.t.rest || S.settings.rest);
+      if (!S.current.edit) startTimer(e.t.rest || S.settings.rest);   // beim Nachtragen kein Pausentimer
     } else s.done = false;
     save(); renderWorkout();
   },
