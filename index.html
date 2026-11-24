@@ -88,6 +88,7 @@ h3{font-size:17px;margin:0;font-weight:650}
 .chips.area .chip.on{background:var(--accbg);color:var(--acc);border-color:var(--acc)}
 .chips.cat .chip{background:transparent;border:1px dashed var(--line);padding:6px 12px}
 .chips.cat .chip.on{background:var(--tx);color:var(--bg);border:1px solid var(--tx)}
+.abadge{display:inline-block;font-size:11px;font-weight:650;line-height:1.4;color:var(--acc);background:var(--accbg);border-radius:6px;padding:1px 7px;white-space:nowrap;vertical-align:middle}
 .hnpill{color:var(--acc);font-weight:600}
 .hero{background:linear-gradient(135deg,#ff6a3d,#c2185b);border:0;color:#fff}
 .hero .muted{color:rgba(255,255,255,.8)}
@@ -339,6 +340,9 @@ const DEFAULT_EX = [
   ['cardio_ruder','HN Rudergerät','Cardio','Cardiogerät',1,[],'',[AC]],
 ].map(([id,name,muscle,equip,inc,sec,g80,area]) => ({id,name,muscle,equip,inc,sec,g80,area:area||[],hn:!!area,cat:DEV_CAT[id]||null,custom:false}));
 const areaLabel = ex => (ex.area || []).map(a => AREA_SHORT[a] || a).join(' / ');
+/* Standort im Studio als Badge, z. B. „📍 Basic Bereich“ – leer, wenn das Gerät keinem Bereich zugeordnet ist */
+const AREA_FULL = { [AB]: 'Basic Bereich', [AF]: 'Freihantelbereich', [AU]: 'Functionalbereich', [AC]: 'Cardiobereich' };
+const areaBadge = ex => ex && ex.area && ex.area.length ? `<span class="abadge">📍 ${esc(ex.area.map(a => AREA_FULL[a] || a).join(' / '))}</span>` : '';
 
 /* Alte Hantel-Übungen (Version 1) → Geräte-Ersatz in bestehenden Plänen */
 const LEGACY_MAP = {
@@ -749,7 +753,7 @@ const areaChips = (cur, action) => `<div class="chips area">${[['Alle', 'Alle St
 const catOk = (e, f) => !f || f === 'Alle' || e.cat === f;
 const catChips = (cur, action) => `<div class="chips cat">${['Alle', ...CATS]
   .map(k => `<button class="chip ${(cur || 'Alle') === k ? 'on' : ''}" data-a="${action}" data-k="${k}">${k === 'Alle' ? 'Alle Kategorien' : k}</button>`).join('')}</div>`;
-const exSub = e => `${e.cat ? `<b>${esc(e.cat)}</b> · ` : ''}${esc(e.muscle)} · ${esc(e.equip)}${e.area && e.area.length ? ` · <span class="hnpill">${esc(areaLabel(e))}</span>` : ''}`;
+const exSub = e => `${e.cat ? `<b>${esc(e.cat)}</b> · ` : ''}${esc(e.muscle)} · ${esc(e.equip)} ${areaBadge(e)}`;
 function vEx() {
   const q = ui.exSearch.toLowerCase();
   const list = S.exercises.filter(e => (!e.legacy || exHistory(e.id).length) && (ui.exFilter === 'Alle' || e.muscle === ui.exFilter) && areaOk(e, ui.exArea) && catOk(e, ui.exCat) && (!q || e.name.toLowerCase().includes(q)))
@@ -790,7 +794,7 @@ function chartSVG(points, label) {
 function exDetailHTML(id) {
   const e = exById(id), hist = exHistory(id), cardio = isCardio(e);
   const best = hist.reduce((b, x) => x.e1 > (b ? b.e1 : 0) ? x : b, null);
-  let h = `<h2 style="margin-top:6px">${esc(e.name)}</h2><div class="muted small" style="margin-bottom:12px">${esc(e.muscle)}${e.sec && e.sec.length ? ' (+ ' + e.sec.join(', ') + ')' : ''} · ${esc(e.equip)}${cardio ? ' · Stufe + Minuten' : ' · Steigerung ' + fmtKg(e.inc)}</div>
+  let h = `<h2 style="margin-top:6px">${esc(e.name)}</h2><div class="muted small" style="margin-bottom:12px">${esc(e.muscle)}${e.sec && e.sec.length ? ' (+ ' + e.sec.join(', ') + ')' : ''} · ${esc(e.equip)}${cardio ? ' · Stufe + Minuten' : ' · Steigerung ' + fmtKg(e.inc)}${areaBadge(e) ? `<div style="margin-top:6px">${areaBadge(e)}</div>` : ''}</div>
     ${imgsFor(e).length ? `<img class="thumb" src="${esc(imgsFor(e)[0])}" alt="" data-a="photo" data-x="${e.id}" onerror="this.remove()">` : ''}
     <div class="imglinks">${imgsFor(e).length ? `<button data-a="photo" data-x="${e.id}">📷 Foto ansehen</button>` : ''}
       ${mwUrl(e) ? `<a class="vid" href="${mwUrl(e)}" target="_blank" rel="noopener">▶︎ Video-Anleitung (MuscleWiki)</a>` : ''}</div>`;
@@ -855,14 +859,14 @@ function woDetailHTML(id) {
   const w = S.workouts.find(x => x.id === id); if (!w) return '';
   const vol = w.entries.reduce((b, e) => b + e.sets.reduce((c, s) => c + (s.w || 0) * (s.r || 0), 0), 0);
   return `<h2 style="margin-top:6px">${esc(w.name)}</h2><div class="muted small" style="margin-bottom:12px">${fmtDate(w.start)} · ${new Date(w.start).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})} · ${fmtDur((w.end||w.start) - w.start)} · ${Math.round(vol)} kg Volumen</div>
-    ${w.entries.map(e => { const c = isCardio(exById(e.exId)); return `<div class="card"><b>${c ? '🚴 ' : ''}${esc(exById(e.exId).name)}</b><div class="small muted" style="margin-top:4px">${e.sets.map((s, i) => c ? `${i + 1}. ${fmtCardio(s)}` : `${i + 1}. ${fmtN(s.w)} kg × ${s.r}${s.rir != null ? ' @ RIR ' + s.rir : ''}`).join('<br>')}</div></div>`; }).join('')}
+    ${w.entries.map(e => { const c = isCardio(exById(e.exId)); return `<div class="card"><b>${c ? '🚴 ' : ''}${esc(exById(e.exId).name)}</b> ${areaBadge(exById(e.exId))}<div class="small muted" style="margin-top:4px">${e.sets.map((s, i) => c ? `${i + 1}. ${fmtCardio(s)}` : `${i + 1}. ${fmtN(s.w)} kg × ${s.r}${s.rir != null ? ' @ RIR ' + s.rir : ''}`).join('<br>')}</div></div>`; }).join('')}
     <button class="btn block" data-a="reopenWo" data-w="${w.id}" style="margin-bottom:10px">✏️ Training bearbeiten</button>
     <button class="btn sec block" data-a="closeSheet" style="margin-bottom:10px">Schließen</button>
     <button class="btn danger block" data-a="delWo" data-w="${w.id}">Training löschen</button>`;
 }
 
 /* ---------- Mehr ---------- */
-const APP_VERSION = 18;
+const APP_VERSION = 19;
 function vMore() {
   const bytes = (localStorage.getItem(KEY) || '').length;
   return `<div class="top"><h1>Mehr</h1><span class="pill">Version ${APP_VERSION}</span></div>
@@ -934,7 +938,7 @@ function renderWorkout() {
     const ex = exById(e.exId), t = e.t;
     if (e.cardio) {
       h += `<div class="card"><div class="row"><div class="grow"><div class="exname">🚴 ${esc(ex.name)}</div>
-        <div class="small muted">Ziel: ${fmtN(t.minutes)} min · Stufe ${fmtN(t.level)}</div></div>
+        <div class="small muted">Ziel: ${fmtN(t.minutes)} min · Stufe ${fmtN(t.level)}</div>${areaBadge(ex) ? `<div style="margin-top:3px">${areaBadge(ex)}</div>` : ''}</div>
         ${photoBtn(ex)}${videoBtn(ex)}<button class="iconbtn" data-a="exMenu" data-e="${ei}">⋯</button></div>
         ${e.sugg.text ? `<div class="sugg ${e.sugg.cls}">${e.sugg.text}</div>` : ''}
         <div class="sgrid c h"><span>#</span><span>Zuletzt</span><span>Stufe</span><span>Min</span><span></span></div>`;
@@ -949,7 +953,7 @@ function renderWorkout() {
       return;
     }
     h += `<div class="card"><div class="row"><div class="grow"><div class="exname">${esc(ex.name)}</div>
-      <div class="small muted">${t.sets}× ${t.repMin}–${t.repMax} Wdh. · RIR ${t.rir} · Pause ${fmtClock(t.rest)}</div></div>
+      <div class="small muted">${t.sets}× ${t.repMin}–${t.repMax} Wdh. · RIR ${t.rir} · Pause ${fmtClock(t.rest)}</div>${areaBadge(ex) ? `<div style="margin-top:3px">${areaBadge(ex)}</div>` : ''}</div>
       ${photoBtn(ex)}${videoBtn(ex)}
       <button class="iconbtn" data-a="exMenu" data-e="${ei}">⋯</button></div>
       ${e.sugg.text ? `<div class="sugg ${e.sugg.cls}">${e.sugg.text}</div>` : ''}
