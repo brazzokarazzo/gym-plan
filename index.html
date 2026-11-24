@@ -171,6 +171,7 @@ h3{font-size:17px;margin:0;font-weight:650}
 svg.chart{width:100%;height:auto;display:block}
 .pr{color:var(--warn);font-weight:700}
 a.iconbtn{text-decoration:none}
+.iconbtn.vidbtn{color:var(--acc);font-size:14px}
 .imglinks{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
 .thumb{display:block;width:100%;aspect-ratio:16/10;object-fit:contain;background:#fff;border-radius:14px;margin:0 0 10px}
 /* Foto-Layer */
@@ -467,6 +468,7 @@ const MW = {
   latzug_ug:'machine-pulldown', rudern_ug:'machine-neutral-row', brust_eng:'machine-chest-press', nacken_eng:'machine-overhand-overhead-press',
 };
 const mwUrl = ex => MW[ex.id] ? MW_BASE + MW[ex.id] : null;
+const videoBtn = ex => mwUrl(ex) ? `<a class="iconbtn vidbtn" href="${mwUrl(ex)}" target="_blank" rel="noopener" aria-label="Video-Anleitung (MuscleWiki)">▶︎</a>` : '';
 
 /* Vorlagen (nur Geräte): [exId, Sätze, minWdh, maxWdh, RIR, Pause(s)] */
 const TEMPLATES = {
@@ -706,7 +708,7 @@ function vDayEdit() {
   d.items.forEach((it, i) => {
     const ex = exById(it.exId);
     h += `<div class="pitem"><div class="row"><div class="grow"><b>${esc(ex.name)}</b><div class="muted small">${exSub(ex)}</div></div>
-      ${photoBtn(ex)}
+      ${photoBtn(ex)}${videoBtn(ex)}
       <button class="iconbtn" data-a="itemUp" data-i="${i}">↑</button><button class="iconbtn" data-a="itemDown" data-i="${i}">↓</button><button class="iconbtn" data-a="itemMenu" data-i="${i}">⋯</button></div>
       ${isCardio(ex) ? `<div class="pgrid" style="grid-template-columns:1fr 1fr">
         <div><label>Minuten</label><input inputmode="decimal" data-f="item" data-k="minutes" data-i="${i}" value="${fmtN(num(it.minutes) ?? 15)}"></div>
@@ -860,7 +862,7 @@ function woDetailHTML(id) {
 }
 
 /* ---------- Mehr ---------- */
-const APP_VERSION = 17;
+const APP_VERSION = 18;
 function vMore() {
   const bytes = (localStorage.getItem(KEY) || '').length;
   return `<div class="top"><h1>Mehr</h1><span class="pill">Version ${APP_VERSION}</span></div>
@@ -933,7 +935,7 @@ function renderWorkout() {
     if (e.cardio) {
       h += `<div class="card"><div class="row"><div class="grow"><div class="exname">🚴 ${esc(ex.name)}</div>
         <div class="small muted">Ziel: ${fmtN(t.minutes)} min · Stufe ${fmtN(t.level)}</div></div>
-        ${photoBtn(ex)}<button class="iconbtn" data-a="exMenu" data-e="${ei}">⋯</button></div>
+        ${photoBtn(ex)}${videoBtn(ex)}<button class="iconbtn" data-a="exMenu" data-e="${ei}">⋯</button></div>
         ${e.sugg.text ? `<div class="sugg ${e.sugg.cls}">${e.sugg.text}</div>` : ''}
         <div class="sgrid c h"><span>#</span><span>Zuletzt</span><span>Stufe</span><span>Min</span><span></span></div>`;
       e.sets.forEach((s, si) => {
@@ -948,7 +950,7 @@ function renderWorkout() {
     }
     h += `<div class="card"><div class="row"><div class="grow"><div class="exname">${esc(ex.name)}</div>
       <div class="small muted">${t.sets}× ${t.repMin}–${t.repMax} Wdh. · RIR ${t.rir} · Pause ${fmtClock(t.rest)}</div></div>
-      ${photoBtn(ex)}
+      ${photoBtn(ex)}${videoBtn(ex)}
       <button class="iconbtn" data-a="exMenu" data-e="${ei}">⋯</button></div>
       ${e.sugg.text ? `<div class="sugg ${e.sugg.cls}">${e.sugg.text}</div>` : ''}
       <div class="sgrid h"><span>Satz</span><span>Zuletzt</span><span>kg</span><span>Wdh</span><span>RIR</span><span></span></div>`;
